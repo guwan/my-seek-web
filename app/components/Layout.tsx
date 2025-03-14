@@ -1,26 +1,23 @@
 // src/components/Layout.tsx
 import { Link, Outlet } from "react-router-dom";
+import {useState} from "react";
+import Navbar from "~/components/Navbar";
+import Sidebar from "~/components/Sidebar";
 
-const Layout = () => {
+export default function Layout() {
+    const [sidebarOpen, setSidebarOpen] = useState(true);
+
     return (
-        <div>
-            {/* 顶部导航 */}
-            <nav style={{
-                padding: 20,
-                background: "#eee",
-                display: "flex",
-                gap: 20
-            }}>
-                <Link to="/">首页</Link>
-                <Link to="/list">列表页</Link>
-            </nav>
+        <div className="h-screen flex flex-col">
+            <Navbar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-            {/* 页面内容区域 */}
-            <main style={{ padding: 20 }}>
+            {/* 添加 margin-left 过渡效果 */}
+            <main className={`flex-1 bg-gray-50 p-4 transition-margin duration-300 ${
+                sidebarOpen ? 'md:ml-64' : 'ml-0'
+            }`}>
                 <Outlet />
             </main>
         </div>
     );
-};
-
-export default Layout;
+}
