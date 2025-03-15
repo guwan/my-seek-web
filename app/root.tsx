@@ -40,6 +40,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
     </html>
   );
 }
+/*
+
+// HydrateFallback is rendered while the client loader is running
+export function HydrateFallback() {
+  return <div>Loading...</div>;
+}
+*/
 
 export default function App() {
   return <Outlet />;
