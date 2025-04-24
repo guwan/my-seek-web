@@ -1,0 +1,61 @@
+/* 大粒子动画 */
+@keyframes float1 {
+    0%, 100% { transform: translate(0,0) scale(1) rotate(0deg); opacity: 0.6; }
+    50% { transform: translate(100px, 50px) scale(1.2) rotate(180deg); opacity: 0.8; }
+}
+@keyframes float2 {
+    0%, 100% { transform: translate(0,0) scale(1); }
+    50% { transform: translate(-80px, -30px) scale(0.9); }
+}
+@keyframes float3 {
+    0%, 100% { transform: translate(0,0); }
+    50% { transform: translate(120px, -80px); }
+}
+
+/* 快速粒子动画 */
+@keyframes fast-particle-1 {
+    0% { transform: translate(0,0); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: translate(400px, 300px); opacity: 0; }
+}
+@keyframes fast-particle-2 {
+    0% { transform: translate(0,0); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: translate(-500px, 200px); opacity: 0; }
+}
+@keyframes fast-particle-3 {
+    0% { transform: translate(0,0); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: translate(300px, -400px); opacity: 0; }
+}
+@keyframes fast-particle-4 {
+    0% { transform: translate(0,0); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: translate(-300px, -500px); opacity: 0; }
+}
+
+/* 光带动画 */
+@keyframes sweep {
+    0% { transform: translateX(-100%) rotate(45deg); }
+    100% { transform: translateX(150vw) rotate(45deg); }
+}
+@keyframes sweep-2 {
+    0% { transform: translateX(100%) rotate(-30deg); }
+    100% { transform: translateX(-150vw) rotate(-30deg); }
+}
+@keyframes sweep-3 {
+    0% { transform: translateY(-100%) rotate(20deg); }
+    100% { transform: translateY(150vh) rotate(20deg); }
+}
+
+/* 动画类 */
+.animate-float1 { animation: float1 18s ease-in-out infinite; }
+.animate-float2 { animation: float2 24s ease-in-out infinite; }
+.animate-float3 { animation: float3 30s ease-in-out infinite; }
+.animate-fast-particle-1 { animation: fast-particle-1 8s linear infinite; }
+.animate-fast-particle-2 { animation: fast-particle-2 10s linear infinite; }
+.animate-fast-particle-3 { animation: fast-particle-3 12s linear infinite; }
+.animate-fast-particle-4 { animation: fast-particle-4 9s linear infinite; }
+.animate-sweep { animation: sweep 12s linear infinite; }
+.animate-sweep-2 { animation: sweep-2 15s linear infinite; }
+.animate-sweep-3 { animation: sweep-3 18s linear infinite; }

@@ -13,8 +13,9 @@ import {
     SidebarProvider,
     SidebarTrigger,
 } from "~/components/ui/sidebar"
+import {withProtection} from "~/auth/withProtection";
 
-export default function Page() {
+ function Chat() {
     return (
         <SidebarProvider>
             <AppSidebar />
@@ -51,3 +52,4 @@ export default function Page() {
         </SidebarProvider>
     )
 }
+export default withProtection(Chat);
