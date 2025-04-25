@@ -32,7 +32,7 @@ class HttpClient {
         return this.handleResponse<T>(response);
     }
 
-    async post<T>(endpoint: string, body?: Record<string, any>): Promise<T> {
+    async post<T>(endpoint: string, body?: Record<string, any>, options?: RequestInit): Promise<T> {
         // 如果baseUrl为空，使用当前页面URL作为基础
         const url = new URL(endpoint, this.baseUrl || window.location.origin);
 
@@ -43,6 +43,7 @@ class HttpClient {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(body),
+            ...options,
         });
 
         return this.handleResponse<T>(response);

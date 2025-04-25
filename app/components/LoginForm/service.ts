@@ -8,14 +8,11 @@ export async function getCaptcha(captchaKey : string,options?: { [key: string]: 
 }
 
 /** ${AuthController.login} POST /api/auth/login */
-export async function login(
+export async function loginRequest(
     params: LoginParams,
     options?: { [key: string]: any },
 ) {
-    return httpClient.post<Result<LoginResult>>('/api/auth/login', {
-        data: params,
-        ...(options || {}),
-    });
+    return httpClient.post<Result<LoginResult>>('/api/auth/login', params);
 }
 
 /** me GET /api/user/currentUser */

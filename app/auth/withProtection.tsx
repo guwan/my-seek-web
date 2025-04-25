@@ -1,5 +1,5 @@
 // src/auth/withProtection.tsx
-import ProtectedRoute from '../components/ProtectedRoute';
+import ProtectedRoute from './ProtectedRoute';
 
 // 高阶组件，用于保护页面
 export function withProtection<P extends object>(Component: React.ComponentType<P>) {
