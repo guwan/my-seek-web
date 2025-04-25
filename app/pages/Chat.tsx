@@ -1,4 +1,4 @@
-import { AppSidebar } from "~/components/AppSidebar"
+import { AppSidebar } from "~/components/layout/AppSidebar"
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -6,13 +6,13 @@ import {
     BreadcrumbList,
     BreadcrumbPage,
     BreadcrumbSeparator,
-} from "~/components/ui/breadcrumb"
-import { Separator } from "~/components/ui/separator"
+} from "~/components/layout/breadcrumb"
+import { Separator } from "~/components/layout/separator"
 import {
     SidebarInset,
     SidebarProvider,
     SidebarTrigger,
-} from "~/components/ui/sidebar"
+} from "~/components/layout/sidebar"
 import {withProtection} from "~/auth/withProtection";
 
  function Chat() {

@@ -5,7 +5,7 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarInput,
-} from "~/components/ui/sidebar"
+} from "~/components/layout/sidebar"
 
 export function SearchForm({ ...props }: React.ComponentProps<"form">) {
   return (

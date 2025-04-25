@@ -13,28 +13,28 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-} from "~/components/ui/sidebar"
+} from "~/components/layout/sidebar"
 
 // This is sample data.
 const data = {
-  versions: ["1.0.1", "1.1.0-alpha", "2.0.0-beta1"],
+  versions: ["r1", "r0"],
   navMain: [
     {
-      title: "Getting Started",
+      title: "开始",
       url: "#",
       items: [
         {
-          title: "Installation",
+          title: "会话",
           url: "#",
         },
         {
-          title: "Project Structure",
+          title: "写作",
           url: "#",
         },
       ],
     },
     {
-      title: "Building Your Application",
+      title: "会话历史",
       url: "#",
       items: [
         {
@@ -46,100 +46,28 @@ const data = {
           url: "#",
           isActive: true,
         },
-        {
-          title: "Rendering",
-          url: "#",
-        },
-        {
-          title: "Caching",
-          url: "#",
-        },
-        {
-          title: "Styling",
-          url: "#",
-        },
-        {
-          title: "Optimizing",
-          url: "#",
-        },
-        {
-          title: "Configuring",
-          url: "#",
-        },
-        {
-          title: "Testing",
-          url: "#",
-        },
-        {
-          title: "Authentication",
-          url: "#",
-        },
-        {
-          title: "Deploying",
-          url: "#",
-        },
-        {
-          title: "Upgrading",
-          url: "#",
-        },
-        {
-          title: "Examples",
-          url: "#",
-        },
       ],
     },
     {
-      title: "API Reference",
+      title: "写作历史",
       url: "#",
       items: [
         {
           title: "Components",
           url: "#",
         },
-        {
-          title: "File Conventions",
-          url: "#",
-        },
-        {
-          title: "Functions",
-          url: "#",
-        },
-        {
-          title: "next.config.js Options",
-          url: "#",
-        },
-        {
-          title: "CLI",
-          url: "#",
-        },
-        {
-          title: "Edge Runtime",
-          url: "#",
-        },
       ],
     },
     {
-      title: "Architecture",
+      title: "配置",
       url: "#",
       items: [
         {
-          title: "Accessibility",
+          title: "会话配置",
           url: "#",
         },
         {
-          title: "Fast Refresh",
-          url: "#",
-        },
-        {
-          title: "Next.js Compiler",
-          url: "#",
-        },
-        {
-          title: "Supported Browsers",
-          url: "#",
-        },
-        {
-          title: "Turbopack",
+          title: "写作配置",
           url: "#",
         },
       ],
