@@ -1,0 +1,37 @@
+/* 优化Markdown内容显示 */
+.prose {
+    max-width: 100%;
+    color: inherit;
+
+    a {
+        color: #3b82f6;
+        text-decoration: underline;
+        &:hover {
+            color: #2563eb;
+        }
+    }
+
+    pre {
+        background: #1e1e1e !important;
+        border-radius: 0.5rem;
+        padding: 1rem !important;
+        margin: 1rem 0 !important;
+        code {
+            background: none !important;
+            padding: 0 !important;
+        }
+    }
+
+    table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 1rem 0;
+        th, td {
+            border: 1px solid #e5e7eb;
+            padding: 0.5rem;
+        }
+        th {
+            background-color: #f3f4f6;
+        }
+    }
+}

@@ -7,6 +7,7 @@ ai工具集 web端
 pnpm dlx shadcn@latest add button
 
 pnpm dlx shadcn@latest add  sidebar-07
+pnpm dlx shadcn@latest add sidebar-01
 
 A modern, production-ready template for building full-stack React applications using React Router.
 

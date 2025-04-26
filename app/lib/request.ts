@@ -48,6 +48,20 @@ class HttpClient {
 
         return this.handleResponse<T>(response);
     }
+    async postRet(endpoint: string, body?: Record<string, any>, options?: RequestInit) {
+        // 如果baseUrl为空，使用当前页面URL作为基础
+        const url = new URL(endpoint, this.baseUrl || window.location.origin);
+
+        return fetch(url.toString(), {
+            method: 'POST',
+            headers: {
+                ...this.getHeaders(),
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+            ...options,
+        });
+    }
 
     private getHeaders(): HeadersInit {
         const headers: HeadersInit = {};

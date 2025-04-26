@@ -1,6 +1,6 @@
 // src/auth/AuthContext.tsx
 import React, { createContext, useState, useContext, type ReactNode } from 'react';
-import {deleteUserToken, saveUserToken} from "~/lib/AuthUtils";
+import {deleteUserToken, getUserToken, saveUserToken} from "~/lib/AuthUtils";
 
 interface AuthContextType {
     isAuthenticated: boolean;
@@ -12,7 +12,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [isAuthenticated, setIsAuthenticated] = useState(() => {
-        return !!localStorage.getItem('token');
+        return !!getUserToken();
     });
 
     const login = (token: string) => {
