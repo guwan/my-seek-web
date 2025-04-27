@@ -31,11 +31,11 @@ const data = {
             url: "#",
             items: [
                 {
-                    title: "会话",
+                    title: "新建对话",
                     url: "#",
                 },
                 {
-                    title: "写作",
+                    title: "开始写作",
                     url: "#",
                 },
             ],
@@ -137,7 +137,7 @@ export function AppSidebar({...props}: React.ComponentProps<typeof Sidebar>) {
                     </SidebarGroup>
                 ))}
                 {/* 设置区 */}
-                {data.navFun.map((item) => (
+                {data.navSettings.map((item) => (
                     <SidebarGroup key={item.title}>
                         <SidebarGroupLabel>{item.title}</SidebarGroupLabel>
                         <SidebarGroupContent>

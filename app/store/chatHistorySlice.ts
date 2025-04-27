@@ -29,5 +29,7 @@ export const chatHistorySlice = createSlice({
     },
 });
 
-export const {addChatHistory, deleteMessage,clearMessages} = chatHistorySlice.actions;
+export const {addChatHistory,
+    deleteMessage,
+    clearMessages} = chatHistorySlice.actions;
 export default chatHistorySlice.reducer;

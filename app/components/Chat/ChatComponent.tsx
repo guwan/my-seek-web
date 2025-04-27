@@ -15,6 +15,7 @@ import {useDispatch} from "react-redux";
 import {addChatHistory} from "~/store/chatHistorySlice";
 import {message} from "~/components/Message";
 import type {ChatItem} from "~/services/data";
+import {useParams} from "react-router-dom";
 
 interface ChatMessage {
     id: number;
@@ -31,17 +32,22 @@ const ChatComponent = () => {
     const [sendOption, setSendOption] = useState('text');
     const dispatch = useDispatch();
 
+    const { id } = useParams();
+
     // 自动滚动到底部
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({behavior: "smooth"});
     };
 
+    // useEffect(() => {
+    //     scrollToBottom();
+    //     getChatInfo({conversationId: conversationId!}).then(res => {
+    //
+    //     })
+    // }, [messages]);
     useEffect(() => {
-        scrollToBottom();
-        getChatInfo({conversationId: conversationId!}).then(res => {
 
-        })
-    }, [messages]);
+    }, [id]);
 
     // 用户头像组件
     const UserAvatar = () => (
@@ -225,22 +231,6 @@ const ChatComponent = () => {
 
     return (
         <div className="flex flex-col h-full max-w-6xl mx-auto w-full px-4">
-            {/* 会话控制栏 */}
-            <div className="flex justify-between items-center mb-4 py-2 border-b">
-                <div className="text-sm text-gray-500">
-                    会话ID: {conversationId?.substring(0, 8)}...
-                </div>
-                <button
-                    onClick={() => {
-                        setConversationId(null);
-                        setMessages([]);
-                    }}
-                    className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
-                >
-                    新会话
-                </button>
-            </div>
-
             {/* 消息列表 */}
             <div className="flex-1 overflow-auto mb-4 space-y-6">
                 {messages.map((message) => (
