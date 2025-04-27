@@ -1,3 +1,5 @@
+import {number} from "property-information/lib/util/types";
+
 export type Result<T> = {
     code?: number;
     data?: T;
@@ -43,4 +45,16 @@ export type UserInfo = {
     gender?: Gender;
     nickname?: string;
     job?: string;
+}
+
+export interface ChatItem {
+    id: string;
+    title: string;
+}
+
+export interface MenuItem{
+    id: number|string;
+    title: string;
+    url: string;
+    items?: MenuItem[]
 }

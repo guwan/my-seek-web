@@ -14,7 +14,7 @@ import {
     SidebarTrigger,
 } from "~/components/layout/sidebar"
 import {withProtection} from "~/auth/withProtection";
-import ChatComponent from "~/components/ChatComponent";
+import ChatComponent from "~/components/Chat/ChatComponent";
 
  function Chat() {
     return (
