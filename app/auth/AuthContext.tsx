@@ -1,5 +1,5 @@
 // src/auth/AuthContext.tsx
-import React, { createContext, useState, useContext, type ReactNode } from 'react';
+import { createContext, useState, useContext, type ReactNode } from 'react';
 import {deleteUserToken, getUserToken, saveUserToken} from "~/lib/AuthUtils";
 
 interface AuthContextType {

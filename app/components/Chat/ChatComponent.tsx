@@ -1,6 +1,7 @@
 import {useState, useRef, useEffect} from 'react';
 import {httpClient} from "~/lib/request";
 import {v4 as uuidv4} from 'uuid';
+import {useSelector} from "react-redux";
 
 import ReactMarkdown from 'react-markdown';
 import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
@@ -10,29 +11,34 @@ import {vscDarkPlus} from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import '~/css/ChatComponent.css'
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import {getChatInfo} from "~/components/Chat/service";
-import {useDispatch} from "react-redux";
+import {getChatHistory, getChatInfo} from "~/components/Chat/service";
 import {addChatHistory} from "~/store/chatHistorySlice";
+import {setSelectedModel, fetchModels} from "~/store/modelSlice";
 import {message} from "~/components/Message";
-import type {ChatItem} from "~/services/data";
+import type {ChatItem, ChatMessage} from "~/services/data";
 import {useParams} from "react-router-dom";
+import {ModelSelector} from "./ModelSelector";
+import type {RootState} from "~/store";
+import {useAppDispatch} from "~/store";
 
-interface ChatMessage {
-    id: number;
-    type: 'user' | 'ai';
-    content: string;
-    isThinking?: boolean;
-}
 
 const ChatComponent = () => {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [conversationId, setConversationId] = useState<string | null>(null);
+    // 新增加载状态
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     const [sendOption, setSendOption] = useState('text');
-    const dispatch = useDispatch();
+    const dispatch = useAppDispatch();
+    const selectedModel = useSelector((state: RootState) => state.models.selectedModel);
 
     const { id } = useParams();
+
+    // 初始化时获取模型列表
+    useEffect(() => {
+        dispatch(fetchModels());
+    }, [dispatch]);
 
     // 自动滚动到底部
     const scrollToBottom = () => {
@@ -46,7 +52,34 @@ const ChatComponent = () => {
     //     })
     // }, [messages]);
     useEffect(() => {
+        const loadHistory = async () => {
+            if (!id) return;
 
+            setIsLoadingHistory(true);
+            try {
+                const res = await getChatHistory({ conversationId: id });
+                if (res.success) {
+                    const history = res.data!.map((msg: any): ChatMessage => ({
+                        id: msg.id,
+                        type: msg.role === 'user' ? 'user' : 'ai',
+                        content: msg.content,
+                        isThinking: false
+                    }));
+
+                    setMessages(history);
+                    setConversationId(id); // 设置当前会话ID
+                }
+            } catch (error) {
+                message.error("加载历史会话失败");
+            } finally {
+                setIsLoadingHistory(false);
+            }
+        };
+
+        // 当有id参数且当前会话ID不同时加载
+        if (id && id !== conversationId) {
+            loadHistory();
+        }
     }, [id]);
 
     // 用户头像组件
@@ -180,10 +213,11 @@ const ChatComponent = () => {
         setInput('');
 
         try {
-            // 模拟与后端交互，实际应替换为你的API调用
+            // 发送请求时包含选中的模型
             const response = await httpClient.postRet('/api/ai/chat/stream', {
                 conversationId: currentConversationId,
-                message: input
+                message: input,
+                model: selectedModel
             });
 
             // 处理流式响应
@@ -272,29 +306,41 @@ const ChatComponent = () => {
                 <div ref={messagesEndRef}/>
             </div>
 
-            {/* 输入框 */}
-            <div className="flex gap-2 pb-4 items-stretch">
-                <div className="flex-1 relative">
-                <textarea
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    // onKeyDown={(e) => {
-                    //     if (e.key === 'Enter' && !e.shiftKey) {
-                    //         e.preventDefault();
-                    //         handleSend();
-                    //     }
-                    // }}
-                    className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 pr-16 resize-y min-h-[48px] max-h-[200px]"
-                    placeholder="输入消息..."
-                    rows={4}
-                />
+            {/* 输入框和控制区域 */}
+            <div className="pb-4">
+                {/* 模型选择器 */}
+                <div className="mb-3 flex justify-end">
+                    <ModelSelector
+                        selectedModel={selectedModel}
+                        onModelChange={(model) => dispatch(setSelectedModel(model))}
+                        className="text-sm"
+                    />
                 </div>
-                <button
-                    onClick={handleSend}
-                    className="px-6 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors flex items-center justify-center"
-                >
-                    发送
-                </button>
+                
+                {/* 输入框 */}
+                <div className="flex gap-2 items-stretch">
+                    <div className="flex-1 relative">
+                    <textarea
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        // onKeyDown={(e) => {
+                        //     if (e.key === 'Enter' && !e.shiftKey) {
+                        //         e.preventDefault();
+                        //         handleSend();
+                        //     }
+                        // }}
+                        className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 pr-16 resize-y min-h-[48px] max-h-[200px]"
+                        placeholder="输入消息..."
+                        rows={4}
+                    />
+                    </div>
+                    <button
+                        onClick={handleSend}
+                        className="px-6 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors flex items-center justify-center"
+                    >
+                        发送
+                    </button>
+                </div>
             </div>
         </div>
     );

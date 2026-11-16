@@ -46,6 +46,12 @@ export type UserInfo = {
     nickname?: string;
     job?: string;
 }
+export interface ChatMessage {
+    id: number;
+    type: 'user' | 'ai';
+    content: string;
+    isThinking?: boolean;
+}
 
 export interface ChatItem {
     id: string;

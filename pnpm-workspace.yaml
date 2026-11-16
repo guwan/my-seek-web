@@ -1,0 +1,5 @@
+allowBuilds:
+  esbuild: true
+# pnpm 11 起，构建脚本白名单配置移至 pnpm-workspace.yaml
+onlyBuiltDependencies:
+  - esbuild

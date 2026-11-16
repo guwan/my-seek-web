@@ -5,6 +5,7 @@ import { type RouteConfig,
 import { flatRoutes } from "@react-router/fs-routes";
 
 export default [
+    //index("./pages/Chat.tsx"),
     layout("./components/Layout.tsx", [
         index("./pages/Chat.tsx"),
         //route("chat/:id", "./pages/Chat.tsx"),

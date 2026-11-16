@@ -21,6 +21,7 @@ import type {ChatItem, MenuItem} from "~/services/data";
 import {useSelector} from "react-redux";
 import type {RootState} from "~/store";
 import chat from "~/pages/Chat";
+import {getChatHistory, getChatItemList} from "~/components/Chat/service";
 
 // This is sample data.
 const data = {
@@ -81,6 +82,20 @@ export function AppSidebar({...props}: React.ComponentProps<typeof Sidebar>) {
             items,
         }])
     }, [messages]);
+    useEffect(() => {
+        getChatItemList().then(res=>{
+            if(res.success){
+                const his = res.data!.map(chatIntem=>{
+                    return {
+                        id: chatIntem.id,
+                        title: chatIntem.title,
+                        url: "/chat/"+chatIntem.id,
+                    } as MenuItem;
+                })
+                setChatHistory(his)
+            }
+        })
+    }, []);
 
     return (
         <Sidebar {...props}>
