@@ -99,3 +99,7 @@ assets/           # README 截图
 | 项目 | 说明 |
 | --- | --- |
 | `my-seek` | Spring Boot 4 + Spring AI 2 后端，提供鉴权、对话、向量库与知识库接口 |
+
+## 开源协议
+
+本项目采用 [MIT License](./LICENSE) 开源协议。
