@@ -1,5 +1,30 @@
-import {getUserToken} from "~/lib/AuthUtils";
+import {deleteUserToken, getUserToken} from "~/lib/AuthUtils";
 import type {Result} from "~/services/data";
+
+/** 401 处理节流：页面并发请求同时返回 401 时只跳转一次 */
+let lastUnauthorizedAt = 0;
+
+/**
+ * 统一处理未授权响应：清除失效 token 并跳转登录页。
+ *
+ * 不在 HTTP 层使用 alert —— 页面上有多处请求（会话列表、模型列表、当前用户等），
+ * 每个都会拿到 401，会导致弹窗被反复触发，且点掉后仍停留在失效页面。
+ */
+function handleUnauthorized(): void {
+    if (typeof window === 'undefined') return;
+
+    const now = Date.now();
+    if (now - lastUnauthorizedAt < 2000) return;
+    lastUnauthorizedAt = now;
+
+    deleteUserToken();
+
+    // 已在登录页则不再跳转，避免 登录页 -> 探测 -> 401 -> 跳登录页 的死循环
+    if (window.location.pathname === '/login') return;
+
+    const redirect = window.location.pathname + window.location.search;
+    window.location.replace('/login?redirect=' + encodeURIComponent(redirect));
+}
 
 class HttpClient {
     private baseUrl: string;
@@ -115,12 +140,10 @@ class HttpClient {
             responseData = { success: false, code: response.status, msg: text || response.statusText };
         }
 
-        // 处理 401 未授权
-        if (responseData?.code === 401) {
-            if (typeof window !== 'undefined') {
-                window.alert('登录状态已失效，请重新登录');
-            }
-            throw new Error('Unauthorized');
+        // HTTP 401（JWT 过滤器拦截）或业务码 401（如 currentUser 未登录）都视为未授权
+        if (response.status === 401 || responseData?.code === 401) {
+            handleUnauthorized();
+            throw new Error('未登录或登录已过期');
         }
 
         // 处理 HTTP 错误状态码（后端统一使用 msg 字段）

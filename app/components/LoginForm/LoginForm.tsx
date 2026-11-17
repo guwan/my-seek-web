@@ -47,8 +47,9 @@ export function LoginForm({
     const {login}  = useAuth(); // 获取登录方法
     const dispatch = useDispatch<AppDispatch>();
 
-    // 获取来源路径或默认首页
-    const from = location.state?.from?.pathname || '/';
+    // 优先跳回 401 拦截时记录的来源路径，其次路由 state，最后首页
+    const urlParams = new URL(window.location.href).searchParams;
+    const from = urlParams.get('redirect') || location.state?.from?.pathname || '/';
 
     const [userLoginState, setUserLoginState]
         = useState<Result<LoginResult>>({success: true, code: 200});
@@ -99,7 +100,6 @@ export function LoginForm({
                   history.push(urlParams.get('redirect') || '/welcome');
                 })*/
 
-                const urlParams = new URL(window.location.href).searchParams;
                 await fetchCurrentUserInfo()
                     .then((res) => {
 

@@ -16,9 +16,6 @@ export async function loginRequest(
 }
 
 /** me GET /api/user/currentUser */
-export async function fetchCurrentUserInfo(
-) {
-    return httpClient.get<Result<CurrentUser>>('/api/user/currentUser', {
-        method: 'GET'
-    });
+export async function fetchCurrentUserInfo() {
+    return httpClient.get<Result<CurrentUser>>('/api/user/currentUser');
 }
