@@ -156,23 +156,7 @@ class HttpClient {
     }
 }
 
-// 使用示例
 export const httpClient = new HttpClient(
     typeof window !== 'undefined' ? window.location.origin : '',
-    () => getUserToken() // 从 localStorage 获取 token 的示例
-);
-
-/*// GET 请求示例
-httpClient.get<{ data: any }>('/users', { page: 1, limit: 10 })
-    .then(data => console.log(data))
-    .catch(error => console.error(error));
-
-// POST 请求示例
-httpClient.post<{ id: number }>('/users', { name: 'John', age: 30 })
-    .then(data => console.log(data))
-    .catch(error => console.error(error));*/
-
-// 使用示例
-export const httpClientNoAuth = new HttpClient(
-    ''
+    () => getUserToken()
 );

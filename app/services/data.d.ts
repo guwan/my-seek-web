@@ -1,5 +1,3 @@
-import {number} from "property-information/lib/util/types";
-
 export type Result<T> = {
     code?: number;
     data?: T;
@@ -8,32 +6,7 @@ export type Result<T> = {
     timestamp?: number;
     showType?: number;
 };
-export type Result_<T> = {
-    code?: number;
-    data: T;
-    msg?: string;
-    success?: boolean;
-    timestamp?: number;
-};
-export type PageResult<T> = {
-    code?: number;
-    data: T;
-    msg?: string;
-    success?: boolean;
-    timestamp?: number;
-};
-export type PageParams = {
-    current?: number;
-    pageSize?: number;
-};
 
-export type PageRes<T> = {
-    current?: number;
-    data: T;
-    pageSize?: number;
-    total?: number;
-    success?: boolean;
-};
 export type UserInfo = {
     id?: number;
     openId?: string;
@@ -42,10 +15,11 @@ export type UserInfo = {
     phone?: string;
     company?: string;
     depart?: string;
-    gender?: Gender;
+    gender?: string;
     nickname?: string;
     job?: string;
-}
+};
+
 export interface ChatMessage {
     id: number;
     type: 'user' | 'ai';
@@ -58,9 +32,9 @@ export interface ChatItem {
     title: string;
 }
 
-export interface MenuItem{
-    id: number|string;
+export interface MenuItem {
+    id: number | string;
     title: string;
     url: string;
-    items?: MenuItem[]
+    items?: MenuItem[];
 }

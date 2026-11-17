@@ -15,11 +15,13 @@ import {getChatHistory, getChatInfo} from "~/components/Chat/service";
 import {addChatHistory} from "~/store/chatHistorySlice";
 import {setSelectedModel, fetchModels} from "~/store/modelSlice";
 import {message} from "~/components/Message";
-import type {ChatItem, ChatMessage} from "~/services/data";
+import type {ChatMessage} from "~/services/data";
 import {useParams} from "react-router-dom";
+import {Sparkles} from "lucide-react";
 import {ModelSelector} from "./ModelSelector";
 import type {RootState} from "~/store";
 import {useAppDispatch} from "~/store";
+import {NEW_CHAT_EVENT} from "~/lib/constants";
 
 
 const ChatComponent = () => {
@@ -29,7 +31,7 @@ const ChatComponent = () => {
     const [conversationId, setConversationId] = useState<string | null>(null);
     // 新增加载状态
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-    const [sendOption, setSendOption] = useState('text');
+    const [isSending, setIsSending] = useState(false);
     const dispatch = useAppDispatch();
     const selectedModel = useSelector((state: RootState) => state.models.selectedModel);
 
@@ -45,12 +47,21 @@ const ChatComponent = () => {
         messagesEndRef.current?.scrollIntoView({behavior: "smooth"});
     };
 
-    // useEffect(() => {
-    //     scrollToBottom();
-    //     getChatInfo({conversationId: conversationId!}).then(res => {
-    //
-    //     })
-    // }, [messages]);
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
+
+    // 侧边栏“新建对话”通过事件重置当前会话
+    useEffect(() => {
+        const resetChat = () => {
+            setMessages([]);
+            setInput("");
+            setConversationId(null);
+        };
+        window.addEventListener(NEW_CHAT_EVENT, resetChat);
+        return () => window.removeEventListener(NEW_CHAT_EVENT, resetChat);
+    }, []);
+
     useEffect(() => {
         const loadHistory = async () => {
             if (!id) return;
@@ -186,80 +197,76 @@ const ChatComponent = () => {
 
     // 发送消息
     const handleSend = async () => {
-        if (!input.trim()) return;
+        const text = input.trim();
+        if (!text || isSending) return;
 
-        // 如果是新会话则生成ID，否则使用现有ID
-        let isNewChat = true;
-        if (conversationId) {
-            isNewChat = false;
-        }
+        setIsSending(true);
+        const isNewChat = !conversationId;
         const currentConversationId = conversationId || generateNewConversation();
-        // 添加用户消息
+
         const userMessage: ChatMessage = {
             id: Date.now(),
             type: 'user',
-            content: input,
+            content: text,
         };
-
-        // 添加AI消息占位
         const aiMessage: ChatMessage = {
             id: Date.now() + 1,
             type: 'ai',
             content: '',
-            isThinking: true
+            isThinking: true,
         };
 
         setMessages(prev => [...prev, userMessage, aiMessage]);
         setInput('');
 
         try {
-            // 发送请求时包含选中的模型
             const response = await httpClient.postRet('/api/ai/chat/stream', {
                 conversationId: currentConversationId,
-                message: input,
-                model: selectedModel
+                message: text,
+                model: selectedModel,
             });
 
-            // 处理流式响应
+            if (!response.ok) {
+                throw new Error(`请求失败 (${response.status})`);
+            }
+
             const reader = response.body?.getReader();
+            if (!reader) {
+                throw new Error('服务端未返回流式响应');
+            }
+
             const decoder = new TextDecoder();
             let aiContent = '';
+            while (true) {
+                const {done, value} = await reader.read();
+                if (done) break;
 
-            if (reader) {
-                while (true) {
-                    const {done, value} = await reader.read();
-                    if (done) break;
+                aiContent += decoder.decode(value, {stream: true});
+                setMessages(prev => prev.map(msg =>
+                    msg.id === aiMessage.id ? {...msg, content: aiContent, isThinking: false} : msg
+                ));
+            }
 
-                    const chunk = decoder.decode(value);
-                    aiContent += chunk;
-
-                    setMessages(prev => prev.map(msg => {
-                        if (msg.id === aiMessage.id) {
-                            return {...msg, content: aiContent, isThinking: false};
-                        }
-                        return msg;
-                    }));
-                }
-                //新会话要在历史会话中新增。
-                if (isNewChat) {
-                    getChatInfo({conversationId: currentConversationId}).then(res => {
-                        if (res.success) {
-                            const chatInfo = res.data as ChatItem;
-                            dispatch(addChatHistory({id: chatInfo.id, title: chatInfo.title}))
+            // 新会话需要在历史列表中出现
+            if (isNewChat) {
+                getChatInfo({conversationId: currentConversationId})
+                    .then((res) => {
+                        if (res.success && res.data) {
+                            dispatch(addChatHistory(res.data));
                         } else {
-                            message.error("请求后台失败：" + res.msg);
+                            message.error("获取会话信息失败：" + (res.msg || "未知错误"));
                         }
-                    });
-                }
+                    })
+                    .catch(() => message.error("获取会话信息失败"));
             }
         } catch (error) {
-            console.error('Error:', error);
-            setMessages(prev => prev.map(msg => {
-                if (msg.id === aiMessage.id) {
-                    return {...msg, content: '请求失败，请重试', isThinking: false};
-                }
-                return msg;
-            }));
+            console.error('发送消息失败:', error);
+            message.error('请求失败，请重试');
+            setMessages(prev => prev.map(msg =>
+                msg.id === aiMessage.id ? {...msg, content: '请求失败，请重试', isThinking: false} : msg
+            ));
+        } finally {
+            setIsSending(false);
         }
     };
 
@@ -267,6 +274,15 @@ const ChatComponent = () => {
         <div className="flex flex-col h-full max-w-6xl mx-auto w-full px-4">
             {/* 消息列表 */}
             <div className="flex-1 overflow-auto mb-4 space-y-6">
+                {messages.length === 0 && !isLoadingHistory && (
+                    <div className="flex h-full min-h-64 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+                        <div className="bg-primary/10 text-primary flex size-12 items-center justify-center rounded-2xl">
+                            <Sparkles className="size-5" />
+                        </div>
+                        <h2 className="text-lg font-medium text-foreground">有什么可以帮你？</h2>
+                        <p className="text-sm">输入问题开始对话，Shift + Enter 可以换行。</p>
+                    </div>
+                )}
                 {messages.map((message) => (
                     <div
                         key={message.id}
@@ -284,7 +300,7 @@ const ChatComponent = () => {
                         )}
 
                         <div
-                            className={`max-w-[calc(100%-4rem)]  min-w-[200px] p-4 rounded-xl ${
+                            className={`max-w-[calc(100%-4rem)] min-w-0 p-4 rounded-xl ${
                                 message.type === 'user'
                                     ? 'bg-blue-500 text-white'
                                     : 'bg-gray-100 dark:bg-gray-800 prose dark:prose-invert'
@@ -323,22 +339,25 @@ const ChatComponent = () => {
                     <textarea
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        // onKeyDown={(e) => {
-                        //     if (e.key === 'Enter' && !e.shiftKey) {
-                        //         e.preventDefault();
-                        //         handleSend();
-                        //     }
-                        // }}
-                        className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 pr-16 resize-y min-h-[48px] max-h-[200px]"
-                        placeholder="输入消息..."
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                                e.preventDefault();
+                                void handleSend();
+                            }
+                        }}
+                        className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 pr-4 resize-y min-h-[48px] max-h-[200px]"
+                        placeholder="输入消息，Enter 发送，Shift + Enter 换行"
                         rows={4}
+                        aria-label="消息输入框"
                     />
                     </div>
                     <button
+                        type="button"
                         onClick={handleSend}
-                        className="px-6 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition-colors flex items-center justify-center"
+                        disabled={isSending || !input.trim()}
+                        className="px-6 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center min-w-20"
                     >
-                        发送
+                        {isSending ? '发送中...' : '发送'}
                     </button>
                 </div>
             </div>

@@ -6,14 +6,7 @@ interface CurrentUserState {
 }
 
 const initialState: CurrentUserState = {
-    value: {
-        name:'韩立',
-        depart:'信息科',
-        company:'白发生科技',
-        phone:'13500000000',
-        gender: "male",
-        job:"工程师"
-    },
+    value: {},
 };
 
 export const currentUserSlice = createSlice({

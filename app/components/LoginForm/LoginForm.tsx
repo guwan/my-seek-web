@@ -13,13 +13,12 @@ import {useContext, useEffect, useState} from "react";
 import StringUtil from "~/lib/StringUtil";
 import {fetchCurrentUserInfo, getCaptcha, loginRequest} from "~/components/LoginForm/service";
 import {message} from "~/components/Message";
-import type {CaptchaVo, LoginParams, LoginResult} from "~/components/LoginForm/data";
+import type {CaptchaVo, LoginParams} from "~/components/LoginForm/data";
 import {saveUserToken} from "~/lib/AuthUtils";
 import {useDispatch} from "react-redux";
 import type {AppDispatch} from "~/store";
 import {setCurrentUser} from "~/store/currentUserSlice";
 import {useNavigate} from "react-router";
-import type {Result} from "~/services/data";
 import {useLocation} from "react-router-dom";
 import {useAuth} from "~/auth/AuthContext";
 
@@ -38,10 +37,8 @@ export function LoginForm({
         captchaKey: ''
     })
 
-    const [captchaCode, setCaptchaCode] = useState('');
     const [captcha, setCaptcha] = useState<CaptchaVo | null>(null);
     const [loading, setLoading] = useState(false);
-    const [changeTimestamp, setChangeTimestamp] = useState<number>();
     const location = useLocation();
     const navigate = useNavigate();
     const {login}  = useAuth(); // 获取登录方法
@@ -50,9 +47,6 @@ export function LoginForm({
     // 优先跳回 401 拦截时记录的来源路径，其次路由 state，最后首页
     const urlParams = new URL(window.location.href).searchParams;
     const from = urlParams.get('redirect') || location.state?.from?.pathname || '/';
-
-    const [userLoginState, setUserLoginState]
-        = useState<Result<LoginResult>>({success: true, code: 200});
 
     useEffect(() => {
         refreshCaptcha()
@@ -66,7 +60,7 @@ export function LoginForm({
         const data = await getCaptcha(captchaKey);
         if (data.success) {
             setCaptcha(data.data!);
-            setFormData({...formData, captchaKey})
+            setFormData(prev => ({...prev, captchaKey}))
         }else {
             console.log("获取验证码失败：{}",data);
             message.error('获取验证码失败,请重试');
@@ -77,47 +71,29 @@ export function LoginForm({
         setLoading(true)
         setError('')
         try {
-            // 登录
             const result = await loginRequest(formData);
-            if (result.code === 200) {
-                message.success("登录成功")
-
-                login(result.data as string);
-
-                saveUserToken(result.data as string);
-                setLoading(false);
-
-                /*const userInfoResult = await fetchUserInfo();
-                const userMenuResult = await fetchUserMenu();
-
-
-                const urlParams = new URL(window.location.href).searchParams;
-
-                Promise.all([userInfoResult, userMenuResult]).then(() => {
-                  //console.log("登录成功,跳转到：",urlParams.get('redirect') || '/welcome')
-                  refresh();
-                  console.log("userInfoResult和userMenuResult:",userInfoResult,userMenuResult)
-                  history.push(urlParams.get('redirect') || '/welcome');
-                })*/
-
-                await fetchCurrentUserInfo()
-                    .then((res) => {
-
-                        dispatch(setCurrentUser(res.data!));
-                        //const from = urlParams.get('redirect') || '/welcome';
-                        navigate(from, {replace: true});
-                    })
+            if (result.code !== 200) {
+                setError(result.msg || '登录失败');
+                await refreshCaptcha();
                 return;
             }
-            setLoading(false);
-            console.log(result);
-            // 如果失败去设置用户错误信息
-            setError(result.msg!)
-            refreshCaptcha()
+
+            const token = result.data as string;
+            login(token);
+            saveUserToken(token);
+
+            const userInfo = await fetchCurrentUserInfo();
+            if (userInfo.success && userInfo.data) {
+                dispatch(setCurrentUser(userInfo.data));
+            }
+            message.success("登录成功");
+            navigate(from, {replace: true});
         } catch (error) {
-            setLoading(false);
-            console.log(error);
+            console.error(error);
             message.error("登录失败，请重试！");
+            await refreshCaptcha();
+        } finally {
+            setLoading(false);
         }
     };
     return (
@@ -131,63 +107,74 @@ export function LoginForm({
                         <div className="grid gap-6">
                             <div className="grid gap-6">
                                 <div className="grid gap-2">
-                                    <Label htmlFor="email">账号或邮箱</Label>
+                                    <Label htmlFor="username">账号或邮箱</Label>
                                     <Input
                                         id="username"
+                                        autoComplete="username"
                                         value={formData.username}
-                                        onChange={(e) => setFormData({...formData, username: e.target.value})}
-                                        //type="email"
+                                        onChange={(e) => setFormData(prev => ({...prev, username: e.target.value}))}
                                         placeholder="账号或邮箱"
                                         required
                                     />
                                 </div>
                                 <div className="grid gap-2">
-                                    <div className="flex items-center">
-                                        <Label htmlFor="password">密码</Label>
-                                    </div>
-                                    <Input id="password"
-                                           type="password"
-                                           required
-                                           value={formData.password}
-                                           onChange={(e) => setFormData({...formData, password: e.target.value})}
+                                    <Label htmlFor="password">密码</Label>
+                                    <Input
+                                        id="password"
+                                        type="password"
+                                        autoComplete="current-password"
+                                        required
+                                        value={formData.password}
+                                        onChange={(e) => setFormData(prev => ({...prev, password: e.target.value}))}
                                     />
                                 </div>
                                 <div className="grid gap-2">
-                                    <div className="flex items-center justify-between">
-                                        <Label>验证码</Label> {/* 建议添加Label保持结构一致 */}
-                                    </div>
+                                    <Label htmlFor="captcha">验证码</Label>
                                     <div className="flex items-center gap-2">
                                         <input
+                                            id="captcha"
                                             type="text"
-                                            placeholder="验证码"
+                                            placeholder="请输入验证码"
                                             value={formData.captcha}
-                                            onChange={(e) => setFormData({...formData, captcha: e.target.value})}
-                                            // value={captchaCode}
-                                            // onChange={(e) => setCaptchaCode(e.target.value)}
+                                            onChange={(e) => setFormData(prev => ({...prev, captcha: e.target.value}))}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring focus:border-blue-400"
                                             required
                                         />
-                                        {/* 始终保留验证码容器 */}
-                                        <div
-                                            className="h-10 w-24 border border-gray-200 rounded-md shrink-0 flex items-center justify-center"
+                                        <button
+                                            type="button"
+                                            aria-label="点击刷新验证码"
+                                            className="h-10 w-24 border border-gray-200 rounded-md shrink-0 flex items-center justify-center bg-white"
                                             onClick={refreshCaptcha}
                                         >
                                             {captcha ? (
                                                 <img
                                                     src={captcha.imageData}
                                                     alt="验证码"
-                                                    className="w-full h-full object-contain cursor-pointer"
+                                                    className="w-full h-full object-contain"
                                                 />
                                             ) : (
                                                 <span className="text-sm text-gray-400">加载中...</span>
                                             )}
-                                        </div>
+                                        </button>
                                     </div>
-
                                 </div>
 
                                 {/* 错误提示 */}
                                 {error && <div className="mb-4 text-red-500 text-sm text-center">{error}</div>}
+
+                                {/* 仅本地开发环境展示演示账号 */}
+                                {import.meta.env.DEV && (
+                                    <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-center text-sm text-blue-700">
+                                        <span>演示账号：demo　密码：123456</span>
+                                        <button
+                                            type="button"
+                                            className="ml-2 underline underline-offset-2 hover:text-blue-900"
+                                            onClick={() => setFormData(prev => ({...prev, username: 'demo', password: '123456'}))}
+                                        >
+                                            一键填入
+                                        </button>
+                                    </div>
+                                )}
 
                                 <Button
                                     type="submit"
@@ -200,32 +187,13 @@ export function LoginForm({
                                     {loading ? '登录中...' : '登录'}
                                 </Button>
                             </div>
-                            {/* 底部链接 */}
-                            <div className="flex justify-between text-sm">
-                                <a
-                                    href="#"
-                                    className="underline underline-offset-4 hover:underline text-gray-600"
-                                >
-                                    忘记密码?
-                                </a>
-                                <div className="text-gray-600">
-                                    没有账号?{" "}
-                                    <a
-                                        href="#"
-                                        className="underline underline-offset-4 hover:underline"
-                                    >
-                                        注册
-                                    </a>
-                                </div>
-                            </div>
+                            <p className="text-center text-xs text-muted-foreground">
+                                忘记密码或需要开通账号，请联系系统管理员。
+                            </p>
                         </div>
                     </form>
                 </CardContent>
             </Card>
-            <div
-                className="text-balance text-center text-xs text-muted-foreground [&_a]:underline [&_a]:underline-offset-4 [&_a]:hover:text-primary  ">
-                点击继续, 则表示您同意我们的 <a href="#">服务条款</a>{" "}和 <a href="#">隐私政策</a>.
-            </div>
         </div>
     )
 }

@@ -7,7 +7,7 @@ export async function getCaptcha(captchaKey : string,options?: { [key: string]: 
     return httpClient.get<Result<CaptchaVo>>('/api/auth/captcha/base64', {captchaKey});
 }
 
-/** ${AuthController.login} POST /api/auth/login */
+/** POST /api/auth/login */
 export async function loginRequest(
     params: LoginParams,
     options?: { [key: string]: any },

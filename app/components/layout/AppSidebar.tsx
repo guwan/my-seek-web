@@ -1,7 +1,10 @@
-import * as React from "react"
+import * as React from "react";
+import { useEffect, useMemo, useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { Plus, Sparkles } from "lucide-react";
 
-import {SearchForm} from "~/components/SearchForm"
-import {VersionSwitcher} from "~/components/version-switcher"
+import { SearchForm } from "~/components/SearchForm";
 import {
     Sidebar,
     SidebarContent,
@@ -13,168 +16,118 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
     SidebarRail,
-} from "~/components/layout/sidebar"
-import {NavLink, useNavigate} from "react-router";
-import {useEffect, useState} from "react";
-import {useLocation} from "react-router-dom";
-import type {ChatItem, MenuItem} from "~/services/data";
-import {useSelector} from "react-redux";
-import type {RootState} from "~/store";
-import chat from "~/pages/Chat";
-import {getChatHistory, getChatItemList} from "~/components/Chat/service";
+} from "~/components/layout/sidebar";
+import { getChatItemList } from "~/components/Chat/service";
+import { NEW_CHAT_EVENT } from "~/lib/constants";
+import type { MenuItem } from "~/services/data";
+import type { RootState } from "~/store";
 
-// This is sample data.
-const data = {
-    versions: ["r1", "r0"],
-    navFun: [
-        {
-            title: "开始",
-            url: "#",
-            items: [
-                {
-                    title: "新建对话",
-                    url: "#",
-                },
-                {
-                    title: "开始写作",
-                    url: "#",
-                },
-            ],
-        },
-    ],
-    navSettings: [
-        {
-            title: "配置",
-            url: "#",
-            items: [
-                {
-                    title: "会话配置",
-                    url: "#",
-                },
-                {
-                    title: "写作配置",
-                    url: "#",
-                },
-            ],
-        },
-    ],
-}
-
-export function AppSidebar({...props}: React.ComponentProps<typeof Sidebar>) {
-    const [chatHistory, setChatHistory] = useState<MenuItem[]>([]);
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const location = useLocation();
     const navigate = useNavigate();
-
-
-    const messages = useSelector((state: RootState) => state.chatHistorySetter.messages) as ChatItem[];
+    const [backendHistory, setBackendHistory] = useState<MenuItem[]>([]);
+    const [search, setSearch] = useState("");
+    const localHistory = useSelector((state: RootState) => state.chatHistorySetter.messages);
 
     useEffect(() => {
-        const items = messages.map(m => {
-            return {
-                title: m.title,
-                url: `/chat/${m.id}`
-            } as MenuItem
-        })
-        setChatHistory([{
-            id: "chat_history",
-            title: "会话历史",
-            url: "#",
-            items,
-        }])
-    }, [messages]);
-    useEffect(() => {
-        getChatItemList().then(res=>{
-            if(res.success){
-                const his = res.data!.map(chatIntem=>{
-                    return {
-                        id: chatIntem.id,
-                        title: chatIntem.title,
-                        url: "/chat/"+chatIntem.id,
-                    } as MenuItem;
-                })
-                setChatHistory(his)
-            }
-        })
+        let active = true;
+        getChatItemList()
+            .then((res) => {
+                if (!active || !res.success || !res.data) return;
+                setBackendHistory(res.data.map((item) => ({
+                    id: item.id,
+                    title: item.title || "未命名会话",
+                    url: `/chat/${item.id}`,
+                })));
+            })
+            .catch(() => {
+                // 历史加载失败时保留空列表，不影响主界面使用
+            });
+        return () => {
+            active = false;
+        };
     }, []);
+
+    const historyItems = useMemo(() => {
+        const backendIds = new Set(backendHistory.map((item) => String(item.id)));
+        const localItems: MenuItem[] = localHistory
+            .filter((item) => !backendIds.has(String(item.id)))
+            .map((item) => ({
+                id: item.id,
+                title: item.title || "新会话",
+                url: `/chat/${item.id}`,
+            }));
+
+        const keyword = search.trim().toLowerCase();
+        return [...localItems, ...backendHistory].filter((item) =>
+            !keyword || item.title.toLowerCase().includes(keyword)
+        );
+    }, [backendHistory, localHistory, search]);
+
+    const startNewChat = () => {
+        navigate("/");
+        window.dispatchEvent(new CustomEvent(NEW_CHAT_EVENT));
+    };
 
     return (
         <Sidebar {...props}>
             <SidebarHeader>
-                <VersionSwitcher
-                    versions={data.versions}
-                    defaultVersion={data.versions[0]}
+                <div className="flex items-center gap-3 px-2 py-2">
+                    <div className="bg-sidebar-primary text-sidebar-primary-foreground flex size-9 items-center justify-center rounded-lg">
+                        <Sparkles className="size-4" />
+                    </div>
+                    <div className="flex flex-col leading-tight">
+                        <span className="font-semibold">MySeek</span>
+                        <span className="text-xs text-muted-foreground">AI 对话工作台</span>
+                    </div>
+                </div>
+                <SearchForm
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="搜索会话..."
                 />
-                <SearchForm/>
             </SidebarHeader>
             <SidebarContent>
-                {/* 功能区 */}
-                {data.navFun.map((item) => (
-                    <SidebarGroup key={item.title}>
-                        <SidebarGroupLabel>{item.title}</SidebarGroupLabel>
-                        <SidebarGroupContent>
+                <SidebarGroup>
+                    <SidebarGroupContent>
+                        <SidebarMenu>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton asChild>
+                                    <button type="button" onClick={startNewChat} className="w-full">
+                                        <Plus className="size-4" />
+                                        新建对话
+                                    </button>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        </SidebarMenu>
+                    </SidebarGroupContent>
+                </SidebarGroup>
+
+                <SidebarGroup>
+                    <SidebarGroupLabel>会话历史</SidebarGroupLabel>
+                    <SidebarGroupContent>
+                        {historyItems.length > 0 ? (
                             <SidebarMenu>
-                                {item.items.map((item) => (
-                                    <SidebarMenuItem key={item.title}>
+                                {historyItems.map((item) => (
+                                    <SidebarMenuItem key={String(item.id)}>
                                         <SidebarMenuButton
                                             asChild
-                                            //isActive={item.isActive}
-                                            isActive={location.pathname.startsWith(item.url)}
+                                            isActive={location.pathname === item.url}
                                         >
-                                            {/*<a href={item.url} >{item.title}</a>*/}
                                             <NavLink to={item.url}>{item.title}</NavLink>
                                         </SidebarMenuButton>
                                     </SidebarMenuItem>
                                 ))}
                             </SidebarMenu>
-                        </SidebarGroupContent>
-                    </SidebarGroup>
-                ))}
-                {/* 历史记录，动态后端生成 */}
-                {chatHistory.map((item) => (
-                    <SidebarGroup key={item.title}>
-                        <SidebarGroupLabel>{item.title}</SidebarGroupLabel>
-                        <SidebarGroupContent>
-                            <SidebarMenu>
-                                {item.items!.map((item) => (
-                                    <SidebarMenuItem key={item.title}>
-                                        <SidebarMenuButton
-                                            asChild
-                                            //isActive={item.isActive}
-                                            isActive={location.pathname.startsWith(item.url)}
-                                        >
-                                            {/*<a href={item.url} >{item.title}</a>*/}
-                                            <NavLink to={item.url}>{item.title}</NavLink>
-                                        </SidebarMenuButton>
-                                    </SidebarMenuItem>
-                                ))}
-                            </SidebarMenu>
-                        </SidebarGroupContent>
-                    </SidebarGroup>
-                ))}
-                {/* 设置区 */}
-                {data.navSettings.map((item) => (
-                    <SidebarGroup key={item.title}>
-                        <SidebarGroupLabel>{item.title}</SidebarGroupLabel>
-                        <SidebarGroupContent>
-                            <SidebarMenu>
-                                {item.items.map((item) => (
-                                    <SidebarMenuItem key={item.title}>
-                                        <SidebarMenuButton
-                                            asChild
-                                            //isActive={item.isActive}
-                                            isActive={location.pathname.startsWith(item.url)}
-                                        >
-                                            {/*<a href={item.url} >{item.title}</a>*/}
-                                            <NavLink to={item.url}>{item.title}</NavLink>
-                                        </SidebarMenuButton>
-                                    </SidebarMenuItem>
-                                ))}
-                            </SidebarMenu>
-                        </SidebarGroupContent>
-                    </SidebarGroup>
-                ))}
+                        ) : (
+                            <p className="px-2 py-4 text-xs text-muted-foreground">
+                                {search.trim() ? "没有匹配的会话" : "还没有会话，开始一次对话吧"}
+                            </p>
+                        )}
+                    </SidebarGroupContent>
+                </SidebarGroup>
             </SidebarContent>
-            <SidebarRail/>
+            <SidebarRail />
         </Sidebar>
-    )
+    );
 }

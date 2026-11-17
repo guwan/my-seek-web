@@ -1,8 +1,7 @@
-import type {LoginParams, LoginResult} from "~/components/LoginForm/data";
 import {httpClient} from "~/lib/request";
 import type {ChatItem, ChatMessage, Result} from "~/services/data";
 
-/** ${AuthController.login} POST /api/auth/login */
+/** GET /api/ai/chat/info */
 export async function getChatInfo(
     params: { conversationId: string },
 ) {
@@ -10,7 +9,7 @@ export async function getChatInfo(
 }
 
 
-/** ${AuthController.login} POST /api/auth/login */
+/** GET /api/ai/chat/history */
 export async function getChatHistory(
     params: { conversationId: string },
 ) {
@@ -18,7 +17,7 @@ export async function getChatHistory(
 }
 
 
-/** ${AuthController.login} POST /api/auth/login */
+/** GET /api/ai/chat/item/list */
 export async function getChatItemList() {
-    return httpClient.get<Result<ChatItem[]>>('/api/ai/chat/item/list', );
+    return httpClient.get<Result<ChatItem[]>>('/api/ai/chat/item/list');
 }

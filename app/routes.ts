@@ -8,8 +8,7 @@ export default [
     //index("./pages/Chat.tsx"),
     layout("./components/Layout.tsx", [
         index("./pages/Chat.tsx"),
-        //route("chat/:id", "./pages/Chat.tsx"),
-        route("detail/:id", "./pages/Detail.tsx"),
+        route("chat/:id", "./pages/ChatDetail.tsx"),
     ]),
     ...(await flatRoutes())
 ] satisfies RouteConfig;

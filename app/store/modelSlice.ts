@@ -37,9 +37,9 @@ export const fetchModels = createAsyncThunk<ModelInfo[], void, { rejectValue: st
             if (response.success) {
                 return response.data || [];
             }
-            return rejectWithValue('Failed to fetch models');
+            return rejectWithValue('模型列表加载失败');
         } catch (error) {
-            return rejectWithValue('Error fetching models');
+            return rejectWithValue('模型列表加载失败，请检查后端服务');
         }
     }
 );
@@ -51,22 +51,6 @@ const modelSlice = createSlice({
         setSelectedModel: (state, action: PayloadAction<string>) => {
             state.selectedModel = action.payload;
         },
-        clearError: (state) => {
-            state.error = null;
-        },
-        // 设置默认模型
-        setDefaultModel: (state) => {
-            if (state.models.length > 0) {
-                // 优先选择 Ollama 的 deepseek-r1:8b
-                const defaultModel = state.models.find(m => m.name === DEFAULT_MODEL);
-                if (defaultModel) {
-                    state.selectedModel = DEFAULT_MODEL;
-                } else {
-                    // 如果没有默认模型，选择第一个可用的
-                    state.selectedModel = state.models[0].name;
-                }
-            }
-        }
     },
     extraReducers: (builder) => {
         builder
@@ -96,5 +80,5 @@ const modelSlice = createSlice({
     },
 });
 
-export const { setSelectedModel, clearError, setDefaultModel } = modelSlice.actions;
+export const { setSelectedModel } = modelSlice.actions;
 export default modelSlice.reducer;
