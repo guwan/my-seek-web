@@ -164,11 +164,11 @@ export function LoginForm({
 
                                 {/* 仅本地开发环境展示演示账号 */}
                                 {import.meta.env.DEV && (
-                                    <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-center text-sm text-blue-700">
+                                    <div className="rounded-md border border-violet-200 bg-violet-50 p-3 text-center text-sm text-violet-700 dark:border-violet-800/50 dark:bg-violet-950/30 dark:text-violet-300">
                                         <span>演示账号：demo　密码：123456</span>
                                         <button
                                             type="button"
-                                            className="ml-2 underline underline-offset-2 hover:text-blue-900"
+                                            className="ml-2 underline underline-offset-2 hover:text-violet-900 dark:hover:text-violet-200"
                                             onClick={() => setFormData(prev => ({...prev, username: 'demo', password: '123456'}))}
                                         >
                                             一键填入
@@ -179,8 +179,8 @@ export function LoginForm({
                                 <Button
                                     type="submit"
                                     disabled={loading}
-                                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600
-                                                hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-3 rounded-xl
+                                    className="w-full bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500
+                                                hover:from-violet-600 hover:via-purple-600 hover:to-indigo-600 text-white font-semibold py-3 rounded-xl shadow-lg shadow-purple-500/25
                                                 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 active:scale-95 text-2xl"
                                 >
 

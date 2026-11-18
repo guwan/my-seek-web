@@ -39,7 +39,7 @@ const MessageBox = () => {
                                 ? "bg-red-500"
                                 : msg.type === "success"
                                     ? "bg-green-500"
-                                    : "bg-blue-500"
+                                    : "bg-gradient-to-r from-violet-500 to-indigo-500"
                         }`}
                     >
                         {msg.content}

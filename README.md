@@ -1,13 +1,14 @@
 # MySeek Web
 
-**MySeek 的 Web 前端** —— 一个面向企事业内部的 AI 对话工作台，支持多模型切换、流式输出、会话管理与知识库问答。与 [MySeek 后端](../my-seek/README.md) 配套使用。
+[![React](https://img.shields.io/badge/React-19.3-61DAFB?logo=react&logoColor=white)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-7.3-646CFF?logo=vite&logoColor=white)](https://vite.dev/)
+[![React Router](https://img.shields.io/badge/React%20Router-7.18-CA4245?logo=reactrouter&logoColor=white)](https://reactrouter.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.3-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/guwan/my-seek-web?style=social)](https://github.com/guwan/my-seek-web)
 
-![React](https://img.shields.io/badge/React-19.3-61DAFB?logo=react&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-7.3-646CFF?logo=vite&logoColor=white)
-![React Router](https://img.shields.io/badge/React%20Router-7.18-CA4245?logo=reactrouter&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.3-06B6D4?logo=tailwindcss&logoColor=white)
-![pnpm](https://img.shields.io/badge/pnpm-11-F9AD00?logo=pnpm&logoColor=white)
+**MySeek 的 Web 前端** —— 一个面向企事业内部的 AI 对话工作台，支持多模型切换、流式输出、联网搜索、会话管理、知识库问答与 AI 写作。与 [MySeek 后端](https://github.com/guwan/my-seek) 配套使用。
 
 ---
 
@@ -25,8 +26,11 @@
 
 ## 功能特性
 
-- **多模型切换**：本地 Ollama、豆包、千问，按请求动态选择
-- **流式对话**：逐字输出， Markdown / 代码高亮 / 数学公式（KaTeX）渲染
+- **多模型切换**：本地 Ollama、豆包、千问及 OpenAI 兼容接口，按请求动态选择
+- **流式对话**：逐字输出，Markdown / 代码高亮 / 数学公式（KaTeX）渲染，支持推理过程展示与消息时间分组
+- **联网搜索**：可在对话中开启实时搜索，展示引用的来源链接
+- **供应商管理**：可视化新增、编辑、启停第三方 AI 接口并测试连通性，API Key 由后端加密保存
+- **AI 写作工作台**：独立的写作页面，支持草稿本地保存与 AI 辅助改写
 - **会话管理**：侧边栏会话搜索与一键新建对话，历史消息持久化，按用户隔离
 - **知识库问答**：上传文档后基于 RAG 进行检索增强回答
 - **统一鉴权**：JWT 登录，未授权自动跳转登录页并携带回跳地址
@@ -51,7 +55,7 @@
 
 - Node.js 22+
 - pnpm 11+
-- 后端服务已启动并监听 `8080` 端口（见 [`my-seek`](../my-seek/README.md)）
+- 后端服务已启动并监听 `8080` 端口（见 [my-seek](https://github.com/guwan/my-seek)）
 
 ### 安装与运行
 
@@ -84,13 +88,13 @@ pnpm build       # 产出静态站点到 build/client
 
 ```
 app/
-├── components/   # 界面组件（聊天、登录、布局、通用 UI）
+├── components/   # 界面组件（聊天、登录、供应商、写作、布局、通用 UI）
 ├── routes/       # 文件路由（home / login / dashboard）
-├── pages/        # 页面级组件
-├── store/        # Redux 切片（用户、会话、模型）
+├── pages/        # 页面级组件（Providers / Write）
+├── store/        # Redux 切片（用户、会话、模型、写作）
 ├── lib/          # HTTP 客户端、鉴权工具
 ├── auth/         # 登录状态 Context
-└── services/     # 类型声明
+└── services/     # 类型声明与 API 封装
 assets/           # README 截图
 ```
 
@@ -98,7 +102,8 @@ assets/           # README 截图
 
 | 项目 | 说明 |
 | --- | --- |
-| `my-seek` | Spring Boot 4 + Spring AI 2 后端，提供鉴权、对话、向量库与知识库接口 |
+| [guwan/my-seek](https://github.com/guwan/my-seek) | Spring Boot 4 + Spring AI 2 后端，提供鉴权、对话、联网搜索、向量库与知识库接口 |
+| [guwan/my-seek-page](https://github.com/guwan/my-seek-page) | MySeek 官方宣传站 |
 
 ## 开源协议
 

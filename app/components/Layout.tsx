@@ -1,4 +1,4 @@
-import { Link, Outlet } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "~/components/layout/sidebar";
 import { AppSidebar } from "~/components/layout/AppSidebar";
 import { Separator } from "~/components/layout/separator";
@@ -12,8 +12,11 @@ import {
 } from "~/components/layout/breadcrumb";
 
 export default function Layout() {
+    const location = useLocation();
+    const isWriting = location.pathname.startsWith("/write");
+    const isProviders = location.pathname.startsWith("/providers");
     return (
-        <SidebarProvider>
+        <SidebarProvider className="h-svh overflow-hidden">
             <AppSidebar />
             <SidebarInset>
                 <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
@@ -26,17 +29,21 @@ export default function Layout() {
                         <BreadcrumbList>
                             <BreadcrumbItem className="hidden md:block">
                                 <BreadcrumbLink asChild>
-                                    <Link to="/">对话</Link>
+                                    <Link to={isWriting ? "/write" : isProviders ? "/providers" : "/"}>
+                                        {isWriting ? "写作" : isProviders ? "设置" : "对话"}
+                                    </Link>
                                 </BreadcrumbLink>
                             </BreadcrumbItem>
                             <BreadcrumbSeparator className="hidden md:block" />
                             <BreadcrumbItem>
-                                <BreadcrumbPage>问一个问题</BreadcrumbPage>
+                                <BreadcrumbPage>
+                                    {isWriting ? "新建章节" : isProviders ? "第三方 AI 接口" : "问一个问题"}
+                                </BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>
                     </Breadcrumb>
                 </header>
-                <div className="flex flex-1 flex-col gap-4 p-4" id="chatContainer">
+                <div className="flex min-h-0 flex-1 flex-col" id="chatContainer">
                     <Outlet />
                 </div>
             </SidebarInset>

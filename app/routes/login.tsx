@@ -22,8 +22,8 @@ export default function Page() {
                     <div key={i} className={clsx(
                         "absolute h-96 w-96 rounded-full blur-[50px]",
                         i % 2 === 0
-                            ? "bg-gradient-to-r from-indigo-500/30 to-purple-400/20"
-                            : "bg-gradient-to-r from-blue-400/20 to-purple-300/20",
+                            ? "bg-gradient-to-r from-violet-500/30 to-fuchsia-400/20"
+                            : "bg-gradient-to-r from-indigo-400/20 to-purple-300/20",
                         `animate-float${i % 3 + 1}`,
                         i === 0 && "-top-20 -left-20",
                         i === 1 && "-bottom-40 -right-20",

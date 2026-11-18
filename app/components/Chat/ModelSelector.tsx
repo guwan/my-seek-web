@@ -109,7 +109,7 @@ export const ModelSelector = ({ selectedModel, onModelChange, className = "" }: 
                     id="model-select"
                     value={selectedModel}
                     onChange={(event) => onModelChange(event.target.value)}
-                    className="appearance-none px-4 py-1.5 pr-8 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-background text-foreground border-border hover:border-blue-400 transition-colors cursor-pointer max-w-[240px]"
+                    className="appearance-none px-4 py-1.5 pr-8 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 bg-background text-foreground border-border hover:border-violet-400 transition-colors cursor-pointer max-w-[240px]"
                 >
                     {Object.entries(groupedModels).map(([provider, providerModels]) => (
                         <optgroup

@@ -8,6 +8,8 @@ export async function getChatInfo(
     return httpClient.get<Result<ChatItem>>('/api/ai/chat/info', params);
 }
 
+export type SearchSourceItem = {title: string; url: string};
+
 
 /** GET /api/ai/chat/history */
 export async function getChatHistory(

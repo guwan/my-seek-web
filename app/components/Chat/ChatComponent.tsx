@@ -2,47 +2,64 @@ import {useState, useRef, useEffect} from 'react';
 import {httpClient} from "~/lib/request";
 import {v4 as uuidv4} from 'uuid';
 import {useSelector} from "react-redux";
-
-import ReactMarkdown from 'react-markdown';
-import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
-import remarkGfm from 'remark-gfm';
-import {vscDarkPlus} from 'react-syntax-highlighter/dist/cjs/styles/prism';
+import {useParams} from "react-router-dom";
+import {Brain, Globe, Sparkles, Square, ArrowUp} from "lucide-react";
 
 import '~/css/ChatComponent.css'
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
-import {getChatHistory, getChatInfo} from "~/components/Chat/service";
+import {getChatHistory} from "~/components/Chat/service";
 import {addChatHistory} from "~/store/chatHistorySlice";
 import {setSelectedModel, fetchModels} from "~/store/modelSlice";
 import {message} from "~/components/Message";
 import type {ChatMessage} from "~/services/data";
-import {useParams} from "react-router-dom";
-import {Sparkles} from "lucide-react";
 import {ModelSelector} from "./ModelSelector";
 import type {RootState} from "~/store";
 import {useAppDispatch} from "~/store";
-import {NEW_CHAT_EVENT} from "~/lib/constants";
+import {CHAT_LIST_REFRESH_EVENT, NEW_CHAT_EVENT} from "~/lib/constants";
+import ChatMessageView from "./ChatMessageView";
+import {parseReasoning, isReasoningStreaming} from "./reasoning";
+import {decodeSourcesFrame, type SearchMeta} from "./streamUtils";
 
+/** 统一的开关样式：选中态紫蓝渐变 + 光晕，未选中态柔和浅底；两个开关完全一致 */
+const toggleClass = (active: boolean) =>
+    `group relative flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-all duration-200 ${
+        active
+            ? "border-transparent bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 font-medium text-white shadow-md shadow-purple-500/30"
+            : "border-border/80 bg-muted/40 text-foreground/75 hover:border-purple-300 hover:bg-muted hover:text-foreground"
+    }`;
+
+/** 开关左侧的状态指示灯：选中时发白光 */
+const toggleDotClass = (active: boolean) =>
+    active
+        ? "size-1.5 rounded-full bg-white shadow-[0_0_6px_2px_rgba(255,255,255,0.55)]"
+        : "size-1.5 rounded-full bg-border transition-colors group-hover:bg-purple-400";
+
+const SUGGESTIONS = [
+    "帮我分析一个问题",
+    "写一段产品介绍文案",
+    "解释一个技术概念",
+    "制定一份学习计划",
+];
 
 const ChatComponent = () => {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [conversationId, setConversationId] = useState<string | null>(null);
-    // 新增加载状态
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     const [isSending, setIsSending] = useState(false);
+    const [webSearch, setWebSearch] = useState(false);
+    const [showReasoning, setShowReasoning] = useState(true);
+    const [reasoningExpanded, setReasoningExpanded] = useState<Record<number, boolean>>({});
+    const abortRef = useRef<AbortController | null>(null);
     const dispatch = useAppDispatch();
     const selectedModel = useSelector((state: RootState) => state.models.selectedModel);
 
     const { id } = useParams();
 
-    // 初始化时获取模型列表
     useEffect(() => {
         dispatch(fetchModels());
     }, [dispatch]);
 
-    // 自动滚动到底部
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({behavior: "smooth"});
     };
@@ -65,127 +82,36 @@ const ChatComponent = () => {
     useEffect(() => {
         const loadHistory = async () => {
             if (!id) return;
-
             setIsLoadingHistory(true);
             try {
                 const res = await getChatHistory({ conversationId: id });
-                if (res.success) {
-                    const history = res.data!.map((msg: any): ChatMessage => ({
-                        id: msg.id,
-                        type: msg.role === 'user' ? 'user' : 'ai',
-                        content: msg.content,
-                        isThinking: false
-                    }));
-
+                if (res.success && res.data) {
+                    const history: ChatMessage[] = res.data.map((msg: any) => {
+                        const parsed = parseReasoning(msg.content || "");
+                        return {
+                            id: msg.id,
+                            type: msg.role === 'user' ? 'user' : 'ai',
+                            content: parsed.content,
+                            reasoning: parsed.reasoning || undefined,
+                            isThinking: false,
+                        };
+                    });
                     setMessages(history);
-                    setConversationId(id); // 设置当前会话ID
+                    setConversationId(id);
                 }
-            } catch (error) {
+            } catch {
                 message.error("加载历史会话失败");
             } finally {
                 setIsLoadingHistory(false);
             }
         };
-
-        // 当有id参数且当前会话ID不同时加载
         if (id && id !== conversationId) {
             loadHistory();
         }
     }, [id]);
 
-    // 用户头像组件
-    const UserAvatar = () => (
-        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center ml-2">
-            <span className="text-white text-sm">你</span>
-        </div>
-    );
-
-    // AI头像组件
-    const AIAvatar = () => (
-        <div className="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center mr-2">
-            <span className="text-gray-800 dark:text-gray-200 text-sm">AI</span>
-        </div>
-    );
-    const renderContent = (content: string) => {
-        const parts = content.split(/(<think>[\s\S]*?<\/think>)/g);
-
-        return parts.map((part, index) => {
-            if (part.startsWith('<think>') && part.endsWith('</think>')) {
-                const thinkContent = part.slice(7, -8).trim();
-                if (!thinkContent) {
-                    return <></>
-                }
-                return (
-                    <div key={`think-${index}`} className="my-4 w-full">
-                        <div className="text-sm text-gray-500 mb-2">内部思考：</div>
-                        <SyntaxHighlighter
-                            language="text"
-                            style={vscDarkPlus}
-                            className="rounded-lg p-4 text-sm max-w-full overflow-x-auto"
-                            customStyle={{
-                                background: '#1e1e1e',
-                                fontSize: '0.875rem',
-                                lineHeight: '1.5',
-                            }}
-                        >
-                            {thinkContent}
-                        </SyntaxHighlighter>
-                    </div>
-                );
-            }
-
-            return (
-                <ReactMarkdown
-                    key={`md-${index}`}
-                    remarkPlugins={[remarkGfm, remarkMath]}
-                    rehypePlugins={[rehypeKatex]}
-                    components={{
-                        h1: ({node, ...props}) => <h1 className="text-2xl font-bold my-4" {...props} />,
-                        h2: ({node, ...props}) => <h2 className="text-xl font-semibold my-3" {...props} />,
-                        p: ({node, ...props}) => <p className="my-3 leading-relaxed" {...props} />,
-                        ul: ({node, ...props}) => <ul className="list-disc pl-6 my-3" {...props} />,
-                        ol: ({node, ...props}) => <ol className="list-decimal pl-6 my-3" {...props} />,
-                        li: ({node, ...props}) => <li className="my-1" {...props} />,
-                        blockquote: ({node, ...props}) => (
-                            <blockquote className="border-l-4 border-gray-300 pl-4 my-3 text-gray-600" {...props} />
-                        ),
-                        code({node, inline, className, children, ...props}: {
-                            node?: any;
-                            inline?: boolean;
-                            className?: string;
-                            children?: React.ReactNode;
-                        }) {
-                            const match = /language-(\w+)/.exec(className || '');
-                            return !inline && match ? (
-                                <SyntaxHighlighter
-                                    style={vscDarkPlus}
-                                    language={match[1]}
-                                    PreTag="div"
-                                    className="rounded-lg p-4 my-3 text-sm max-w-full overflow-x-auto"
-                                    customStyle={{
-                                        background: '#1e1e1e',
-                                        fontSize: '0.875rem',
-                                        lineHeight: '1.5',
-                                    }}
-                                    {...props}
-                                >
-                                    {String(children).replace(/\n$/, '')}
-                                </SyntaxHighlighter>
-                            ) : (
-                                <code
-                                    className="bg-gray-100 px-1.5 py-0.5 rounded font-mono text-sm break-words"
-                                    {...props}
-                                >
-                                    {children}
-                                </code>
-                            );
-                        }
-                    }}
-                >
-                    {part}
-                </ReactMarkdown>
-            );
-        });
+    const handleToggleReasoning = (msgId: number) => {
+        setReasoningExpanded(prev => ({...prev, [msgId]: !prev[msgId]}));
     };
 
     // 生成新的会话ID
@@ -195,170 +121,235 @@ const ChatComponent = () => {
         return newId;
     };
 
-    // 发送消息
+    /** 执行发送 / 重新生成：streamText 为本次用户输入 */
+    const runStream = async (text: string, convId: string, aiId: number) => {
+        setIsSending(true);
+        const controller = new AbortController();
+        abortRef.current = controller;
+        let reasoningStart = 0;
+        let reasoningEnd = 0;
+
+        try {
+            const response = await httpClient.postRet('/api/ai/chat/stream', {
+                conversationId: convId,
+                message: text,
+                model: selectedModel,
+                webSearch,
+                enableThinking: showReasoning,
+            }, {signal: controller.signal});
+
+            if (!response.ok) throw new Error(`请求失败 (${response.status})`);
+            const reader = response.body?.getReader();
+            if (!reader) throw new Error('服务端未返回流式响应');
+
+            const decoder = new TextDecoder();
+            let raw = '';
+            let searchMeta: SearchMeta | undefined;
+
+            while (true) {
+                const {done, value} = await reader.read();
+                if (done) break;
+                raw += decoder.decode(value, {stream: true});
+
+                // 解析首帧中的联网元数据（是否已搜索 / 引擎 / 来源）
+                if (raw.startsWith('\u0000MYSEEK_SOURCES:')) {
+                    const decoded = decodeSourcesFrame(raw);
+                    if (decoded.meta !== undefined) {
+                        searchMeta = decoded.meta;
+                        raw = decoded.text;
+                    } else {
+                        continue; // 首帧未接收完整
+                    }
+                }
+
+                const parsed = parseReasoning(raw);
+                const reasoningStreaming = isReasoningStreaming(raw);
+                if (parsed.reasoning && !reasoningStart) reasoningStart = Date.now();
+                if (reasoningStart && !reasoningEnd && !reasoningStreaming && parsed.reasoning) {
+                    reasoningEnd = Date.now();
+                }
+
+                setMessages(prev => prev.map(msg =>
+                    msg.id === aiId ? {
+                        ...msg,
+                        content: parsed.content,
+                        reasoning: parsed.reasoning || undefined,
+                        reasoningStreaming,
+                        reasoningMs: reasoningEnd && reasoningStart ? reasoningEnd - reasoningStart : undefined,
+                        sources: searchMeta?.sources ?? [],
+                        searchPerformed: searchMeta?.performed ?? false,
+                        searchEngine: searchMeta?.engine,
+                        isThinking: !raw,
+                    } : msg
+                ));
+            }
+
+            window.dispatchEvent(new Event(CHAT_LIST_REFRESH_EVENT));
+        } catch (error: any) {
+            if (error?.name === "AbortError") return;
+            console.error('发送消息失败:', error);
+            message.error('请求失败，请重试');
+            setMessages(prev => prev.map(msg =>
+                msg.id === aiId ? {...msg, content: '请求失败，请重试', isThinking: false, error: true} : msg
+            ));
+        } finally {
+            setIsSending(false);
+            abortRef.current = null;
+        }
+    };
+
     const handleSend = async () => {
         const text = input.trim();
         if (!text || isSending) return;
 
-        setIsSending(true);
         const isNewChat = !conversationId;
         const currentConversationId = conversationId || generateNewConversation();
 
-        const userMessage: ChatMessage = {
-            id: Date.now(),
-            type: 'user',
-            content: text,
-        };
-        const aiMessage: ChatMessage = {
-            id: Date.now() + 1,
-            type: 'ai',
-            content: '',
-            isThinking: true,
-        };
+        if (isNewChat) {
+            dispatch(addChatHistory({
+                id: currentConversationId,
+                title: text.length > 30 ? text.slice(0, 30) + "…" : text,
+                createAt: Date.now(),
+            }));
+        }
 
+        const userMessage: ChatMessage = {id: Date.now(), type: 'user', content: text};
+        const aiMessage: ChatMessage = {id: Date.now() + 1, type: 'ai', content: '', isThinking: true};
         setMessages(prev => [...prev, userMessage, aiMessage]);
         setInput('');
+        await runStream(text, currentConversationId, aiMessage.id);
+    };
 
-        try {
-            const response = await httpClient.postRet('/api/ai/chat/stream', {
-                conversationId: currentConversationId,
-                message: text,
-                model: selectedModel,
-            });
+    const stopGenerating = () => abortRef.current?.abort();
 
-            if (!response.ok) {
-                throw new Error(`请求失败 (${response.status})`);
-            }
+    const handleRegenerate = () => {
+        if (isSending) return;
+        // 找到最后一条用户消息，删除其后的 AI 回复后重新生成
+        const lastUserIdx = [...messages].map(m => m.type).lastIndexOf('user');
+        if (lastUserIdx < 0 || !conversationId) return;
+        const lastUserText = messages[lastUserIdx].content;
+        const newAiId = Date.now();
+        setMessages(prev => [...prev.slice(0, lastUserIdx + 1), {id: newAiId, type: 'ai', content: '', isThinking: true}]);
+        void runStream(lastUserText, conversationId, newAiId);
+    };
 
-            const reader = response.body?.getReader();
-            if (!reader) {
-                throw new Error('服务端未返回流式响应');
-            }
-
-            const decoder = new TextDecoder();
-            let aiContent = '';
-            while (true) {
-                const {done, value} = await reader.read();
-                if (done) break;
-
-                aiContent += decoder.decode(value, {stream: true});
-                setMessages(prev => prev.map(msg =>
-                    msg.id === aiMessage.id ? {...msg, content: aiContent, isThinking: false} : msg
-                ));
-            }
-
-            // 新会话需要在历史列表中出现
-            if (isNewChat) {
-                getChatInfo({conversationId: currentConversationId})
-                    .then((res) => {
-                        if (res.success && res.data) {
-                            dispatch(addChatHistory(res.data));
-                        } else {
-                            message.error("获取会话信息失败：" + (res.msg || "未知错误"));
-                        }
-                    })
-                    .catch(() => message.error("获取会话信息失败"));
-            }
-        } catch (error) {
-            console.error('发送消息失败:', error);
-            message.error('请求失败，请重试');
-            setMessages(prev => prev.map(msg =>
-                msg.id === aiMessage.id ? {...msg, content: '请求失败，请重试', isThinking: false} : msg
-            ));
-        } finally {
-            setIsSending(false);
-        }
+    const useSuggestion = (text: string) => {
+        setInput(text);
     };
 
     return (
-        <div className="flex flex-col h-full max-w-6xl mx-auto w-full px-4">
-            {/* 消息列表 */}
-            <div className="flex-1 overflow-auto mb-4 space-y-6">
-                {messages.length === 0 && !isLoadingHistory && (
-                    <div className="flex h-full min-h-64 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
-                        <div className="bg-primary/10 text-primary flex size-12 items-center justify-center rounded-2xl">
-                            <Sparkles className="size-5" />
+        <div className="flex h-full w-full flex-col">
+            {/* 消息滚动区：滚动条在最右，顶部带柔和紫色氛围光 */}
+            <div className="min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(139,92,246,0.07),transparent)] dark:bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(139,92,246,0.10),transparent)]">
+                <div className="mx-auto w-full max-w-3xl space-y-7 px-4 py-8">
+                    {messages.length === 0 && !isLoadingHistory && (
+                        <div className="flex min-h-[55vh] flex-col items-center justify-center gap-6 text-center">
+                            <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 text-white shadow-xl shadow-purple-500/30">
+                                <Sparkles className="size-8"/>
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-semibold">我是 MySeek，很高兴见到你！</h2>
+                                <p className="mt-2 text-sm text-muted-foreground">我可以回答问题、创作内容，也能联网搜索最新信息。</p>
+                            </div>
+                            <div className="grid w-full max-w-xl grid-cols-2 gap-3">
+                                {SUGGESTIONS.map(s => (
+                                    <button
+                                        key={s}
+                                        onClick={() => useSuggestion(s)}
+                                        className="rounded-xl border bg-card px-4 py-3 text-left text-sm text-muted-foreground transition-all hover:border-violet-400/60 hover:bg-violet-50/60 hover:text-violet-700 dark:hover:bg-violet-950/20 dark:hover:text-violet-300"
+                                    >
+                                        {s}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                        <h2 className="text-lg font-medium text-foreground">有什么可以帮你？</h2>
-                        <p className="text-sm">输入问题开始对话，Shift + Enter 可以换行。</p>
-                    </div>
-                )}
-                {messages.map((message) => (
-                    <div
-                        key={message.id}
-                        className={`flex ${message.type === 'user' ? 'flex-row-reverse' : 'flex-row'} items-start gap-3`}
-                    >
-                        {/* 添加flex-shrink-0防止头像被压缩 */}
-                        {message.type === 'user' ? (
-                            <div className="flex-shrink-0">
-                                <UserAvatar/>
-                            </div>
-                        ) : (
-                            <div className="flex-shrink-0">
-                                <AIAvatar/>
-                            </div>
-                        )}
+                    )}
+                    {messages.map((msg, idx) => (
+                        <ChatMessageView
+                            key={msg.id}
+                            msg={msg}
+                            showReasoning={showReasoning}
+                            reasoningExpanded={reasoningExpanded}
+                            onToggleReasoning={handleToggleReasoning}
+                            onRegenerate={handleRegenerate}
+                            isLast={idx === messages.length - 1 && msg.type === 'ai'}
+                        />
+                    ))}
+                    <div ref={messagesEndRef}/>
+                </div>
+            </div>
 
-                        <div
-                            className={`max-w-[calc(100%-4rem)] min-w-0 p-4 rounded-xl ${
-                                message.type === 'user'
-                                    ? 'bg-blue-500 text-white'
-                                    : 'bg-gray-100 dark:bg-gray-800 prose dark:prose-invert'
-                            }`}
-                            style={{
-                                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.05)'
+            {/* 输入区：固定在底部 */}
+            <div className="shrink-0 bg-gradient-to-t from-background via-background to-transparent px-4 pb-3 pt-2">
+                <div className="mx-auto w-full max-w-3xl">
+                    <div className="rounded-2xl border bg-card p-3 shadow-sm focus-within:border-primary/50">
+                        <textarea
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                                    e.preventDefault();
+                                    void handleSend();
+                                }
                             }}
-                        >
-                            {message.isThinking ? (
-                                <div className="flex items-center gap-2">
-                                    <div className="animate-pulse">思考中...</div>
+                            className="w-full resize-none bg-transparent px-1 py-1 text-[15px] leading-6 outline-none placeholder:text-muted-foreground/60"
+                            placeholder="给 MySeek 发送消息，Shift + Enter 换行"
+                            rows={2}
+                            aria-label="消息输入框"
+                        />
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowReasoning(v => !v)}
+                                    title="开启后模型会进行推理并展示思考过程（支持 qwen3 等混合思考模型）"
+                                    className={toggleClass(showReasoning)}
+                                >
+                                    <Brain className="size-3.5"/>
+                                    深度思考
+                                    <span className={toggleDotClass(showReasoning)}/>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setWebSearch(v => !v)}
+                                    title="开启后 AI 会先联网搜索实时资料再回答"
+                                    className={toggleClass(webSearch)}
+                                >
+                                    <Globe className="size-3.5"/>
+                                    智能搜索
+                                    <span className={toggleDotClass(webSearch)}/>
+                                </button>
+                                <div className="hidden sm:block">
+                                    <ModelSelector
+                                        selectedModel={selectedModel}
+                                        onModelChange={(model) => dispatch(setSelectedModel(model))}
+                                        className="text-xs"
+                                    />
                                 </div>
+                            </div>
+                            {isSending ? (
+                                <button
+                                    type="button"
+                                    onClick={stopGenerating}
+                                    title="停止生成"
+                                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-foreground text-background hover:opacity-90"
+                                >
+                                    <Square className="size-3.5 fill-current"/>
+                                </button>
                             ) : (
-                                renderContent(message.content)
+                                <button
+                                    type="button"
+                                    onClick={handleSend}
+                                    disabled={!input.trim()}
+                                    title="发送"
+                                    className="flex size-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-500 text-white shadow-md shadow-purple-500/30 transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                                >
+                                    <ArrowUp className="size-5"/>
+                                </button>
                             )}
                         </div>
                     </div>
-                ))}
-                <div ref={messagesEndRef}/>
-            </div>
-
-            {/* 输入框和控制区域 */}
-            <div className="pb-4">
-                {/* 模型选择器 */}
-                <div className="mb-3 flex justify-end">
-                    <ModelSelector
-                        selectedModel={selectedModel}
-                        onModelChange={(model) => dispatch(setSelectedModel(model))}
-                        className="text-sm"
-                    />
-                </div>
-                
-                {/* 输入框 */}
-                <div className="flex gap-2 items-stretch">
-                    <div className="flex-1 relative">
-                    <textarea
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                                e.preventDefault();
-                                void handleSend();
-                            }
-                        }}
-                        className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 pr-4 resize-y min-h-[48px] max-h-[200px]"
-                        placeholder="输入消息，Enter 发送，Shift + Enter 换行"
-                        rows={4}
-                        aria-label="消息输入框"
-                    />
-                    </div>
-                    <button
-                        type="button"
-                        onClick={handleSend}
-                        disabled={isSending || !input.trim()}
-                        className="px-6 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center min-w-20"
-                    >
-                        {isSending ? '发送中...' : '发送'}
-                    </button>
+                    <p className="mt-2 text-center text-[11px] text-muted-foreground">内容由 AI 生成，请仔细甄别</p>
                 </div>
             </div>
         </div>

@@ -94,6 +94,38 @@ class HttpClient {
 
         return this.handleResponse<T>(response);
     }
+    async put<T>(endpoint: string, body?: Record<string, any>): Promise<T> {
+        const url = this.resolveUrl(endpoint);
+        const response = await fetch(url.toString(), {
+            method: 'PUT',
+            headers: {...this.getHeaders(), 'Content-Type': 'application/json'},
+            body: JSON.stringify(body),
+        });
+        return this.handleResponse<T>(response);
+    }
+
+    async patch<T>(endpoint: string, params?: Record<string, any>, body?: Record<string, any>): Promise<T> {
+        const url = this.resolveUrl(endpoint);
+        if (params) {
+            Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+        }
+        const response = await fetch(url.toString(), {
+            method: 'PATCH',
+            headers: {...this.getHeaders(), 'Content-Type': 'application/json'},
+            body: body ? JSON.stringify(body) : undefined,
+        });
+        return this.handleResponse<T>(response);
+    }
+
+    async delete<T>(endpoint: string): Promise<T> {
+        const url = this.resolveUrl(endpoint);
+        const response = await fetch(url.toString(), {
+            method: 'DELETE',
+            headers: this.getHeaders(),
+        });
+        return this.handleResponse<T>(response);
+    }
+
     async postRet(endpoint: string, body?: Record<string, any>, options?: RequestInit) {
         // 如果baseUrl为空，使用当前页面URL作为基础
         const url = this.resolveUrl(endpoint);
