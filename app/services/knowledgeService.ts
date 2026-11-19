@@ -39,10 +39,10 @@ export async function deleteDocument(documentId: string) {
     return httpClient.delete<Result<unknown>>(`/api/knowledge/documents/${encodeURIComponent(documentId)}`);
 }
 
-export async function queryKnowledge(query: string, topK = 5) {
-    return httpClient.postRet("/api/knowledge/query", {query, topK});
+export async function queryKnowledge(query: string, topK = 5, model?: string) {
+    return httpClient.postRet("/api/knowledge/query", {query, topK, model});
 }
 
-export async function queryDocument(documentId: string, query: string, topK = 5) {
-    return httpClient.postRet(`/api/knowledge/documents/${encodeURIComponent(documentId)}/query`, {query, topK});
+export async function queryDocument(documentId: string, query: string, topK = 5, model?: string) {
+    return httpClient.postRet(`/api/knowledge/documents/${encodeURIComponent(documentId)}/query`, {query, topK, model});
 }

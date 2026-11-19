@@ -1,4 +1,5 @@
 import {useEffect, useRef, useState} from "react";
+import {useSelector} from "react-redux";
 import {Database, FileText, Loader2, Plus, Search, Trash2, Upload} from "lucide-react";
 import {message} from "~/components/Message";
 import {
@@ -11,6 +12,7 @@ import {
     type KnowledgeStatus,
 } from "~/services/knowledgeService";
 import type {Result} from "~/services/data";
+import type {RootState} from "~/store";
 
 const PAGE_SIZE = 10;
 
@@ -45,6 +47,7 @@ export default function KnowledgeManager() {
     const [topK, setTopK] = useState(5);
     const [answer, setAnswer] = useState("");
     const [querying, setQuerying] = useState(false);
+    const selectedModel = useSelector((state: RootState) => state.models.selectedModel);
     const fileRef = useRef<HTMLInputElement>(null);
 
     const load = async () => {
@@ -112,8 +115,8 @@ export default function KnowledgeManager() {
         setAnswer("");
         try {
             const response = scope === "all"
-                ? await queryKnowledge(text, topK)
-                : await queryDocument(scope, text, topK);
+                ? await queryKnowledge(text, topK, selectedModel || undefined)
+                : await queryDocument(scope, text, topK, selectedModel || undefined);
             const data = await response.json() as Result<string>;
             if (!response.ok || !data.success) throw new Error(data.msg || `查询失败 (${response.status})`);
             setAnswer(data.data || "没有找到相关内容");
@@ -241,7 +244,7 @@ export default function KnowledgeManager() {
                         </div>
                         <div>
                             <h2 className="text-sm font-medium">知识库问答</h2>
-                            <p className="text-xs text-muted-foreground">直接检索已完成的文档内容</p>
+                            <p className="text-xs text-muted-foreground">基于已完成文档生成模型回答</p>
                         </div>
                     </div>
 
@@ -295,7 +298,7 @@ export default function KnowledgeManager() {
                     </div>
 
                     <div className="min-h-40 flex-1 whitespace-pre-wrap rounded-lg border bg-muted/30 p-3 text-sm leading-relaxed">
-                        {answer || <span className="text-muted-foreground">查询结果会显示在这里。</span>}
+                        {answer || <span className="text-muted-foreground">模型回答会显示在这里。</span>}
                     </div>
                 </section>
             </div>

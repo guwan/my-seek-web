@@ -1,4 +1,9 @@
-.react-router
-build
+.git
 node_modules
-README.md
+build
+.react-router
+.env
+.env.*
+*.log
+.idea
+assets
