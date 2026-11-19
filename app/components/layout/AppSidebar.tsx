@@ -1,8 +1,8 @@
 import * as React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { BookOpenText, Database, MessageSquareText, PenLine, PlugZap, Plus, Sparkles } from "lucide-react";
+import { BookOpenText, Database, MessageSquareText, PenLine, PlugZap, Plus, Sparkles, UsersRound } from "lucide-react";
 
 import { SearchForm } from "~/components/SearchForm";
 import {
@@ -18,17 +18,37 @@ import {
     SidebarRail,
 } from "~/components/layout/sidebar";
 import { getChatItemList } from "~/components/Chat/service";
+import { fetchCurrentUserInfo } from "~/components/LoginForm/service";
+import { getUserToken } from "~/lib/AuthUtils";
 import { CHAT_LIST_REFRESH_EVENT, NEW_CHAT_EVENT, NEW_WRITING_EVENT } from "~/lib/constants";
 import type { MenuItem } from "~/services/data";
 import type { RootState } from "~/store";
+import { useAppDispatch } from "~/store";
+import { setCurrentUser } from "~/store/currentUserSlice";
 import { formatItemTime, groupByTime } from "~/components/Chat/timeGroup";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const location = useLocation();
     const navigate = useNavigate();
+    const dispatch = useAppDispatch();
     const [backendHistory, setBackendHistory] = useState<MenuItem[]>([]);
     const [search, setSearch] = useState("");
     const localHistory = useSelector((state: RootState) => state.chatHistorySetter.messages);
+    const currentUserAccess = useSelector((state: RootState) => state.currentUserSetter.value.access);
+    const userLoadedRef = useRef(false);
+
+    // 刷新页面后 Redux 状态为空；有 token 时补拉当前用户，恢复管理员菜单可见性。
+    useEffect(() => {
+        if (userLoadedRef.current || currentUserAccess || !getUserToken()) return;
+        userLoadedRef.current = true;
+        fetchCurrentUserInfo()
+            .then(res => {
+                if (res.success && res.data) dispatch(setCurrentUser(res.data as any));
+            })
+            .catch(() => {
+                userLoadedRef.current = false;
+            });
+    }, [currentUserAccess, dispatch]);
 
     useEffect(() => {
         let active = true;
@@ -145,6 +165,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                     </NavLink>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
+                            {currentUserAccess === "admin" && (
+                                <SidebarMenuItem>
+                                    <SidebarMenuButton asChild isActive={location.pathname.startsWith("/users")}>
+                                        <NavLink to="/users">
+                                            <UsersRound className="size-4" />
+                                            用户管理
+                                        </NavLink>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            )}
                             <SidebarMenuItem>
                                 <SidebarMenuButton asChild isActive={location.pathname.startsWith("/providers")}>
                                     <NavLink to="/providers">

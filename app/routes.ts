@@ -11,6 +11,7 @@ export default [
         route("chat/:id", "./pages/ChatDetail.tsx"),
         route("write", "./pages/Write.tsx"),
         route("knowledge", "./pages/Knowledge.tsx"),
+        route("users", "./pages/Users.tsx"),
         route("providers", "./pages/Providers.tsx"),
     ]),
     ...(await flatRoutes())

@@ -18,7 +18,14 @@ export type UserInfo = {
     gender?: string;
     nickname?: string;
     job?: string;
-};
+    /** admin / user，来自 /api/user/currentUser */
+    access?: string;
+    roles?: Array<{
+      id?: number;
+      authority?: string;
+      name?: string;
+    }>;
+    };
 
 export interface SearchSource {
     title: string;
