@@ -1,15 +1,12 @@
-import {useState} from "react";
-import ReactMarkdown from "react-markdown";
-import {Prism as SyntaxHighlighter} from "react-syntax-highlighter";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
-import {vscDarkPlus} from "react-syntax-highlighter/dist/cjs/styles/prism";
+import {lazy, memo, Suspense, useState} from "react";
 import {
     Brain, Check, ChevronDown, ChevronRight, Copy, ExternalLink, Globe, RefreshCw,
 } from "lucide-react";
 import type {ChatMessage} from "~/services/data";
 import {message as toast} from "~/components/Message";
+
+const MarkdownBody = lazy(() => import("./MarkdownBody"));
+const LONG_CONTENT_THRESHOLD = 4000;
 
 interface Props {
     msg: ChatMessage;
@@ -21,11 +18,12 @@ interface Props {
 }
 
 /** 单条消息视图：DeepSeek 风格，推理可折叠、来源可展开、代码块可复制 */
-export default function ChatMessageView({
+function ChatMessageView({
     msg, showReasoning, reasoningExpanded, onToggleReasoning, onRegenerate, isLast,
 }: Props) {
     const [copied, setCopied] = useState(false);
     const [sourcesOpen, setSourcesOpen] = useState(false);
+    const [contentExpanded, setContentExpanded] = useState(false);
 
     const isUser = msg.type === "user";
     const hasReasoning = !!msg.reasoning && showReasoning;
@@ -92,10 +90,34 @@ export default function ChatMessageView({
                             </div>
                         )}
 
-                        {/* 正文 */}
+                        {/* 正文：超长内容先折叠为纯文本，避免首屏解析大段 Markdown */}
                         {msg.content && !msg.isThinking && (
                             <div className="prose prose-sm dark:prose-invert max-w-none text-[15px] leading-7">
-                                <MarkdownBody content={msg.content}/>
+                                {msg.content.length > LONG_CONTENT_THRESHOLD && !contentExpanded ? (
+                                    <div className="not-prose">
+                                        <div className="whitespace-pre-wrap break-words">{msg.content.slice(0, LONG_CONTENT_THRESHOLD)}…</div>
+                                        <button
+                                            onClick={() => setContentExpanded(true)}
+                                            className="mt-3 rounded-lg border px-3 py-1.5 text-xs text-primary hover:bg-accent"
+                                        >
+                                            展开全文（共 {msg.content.length.toLocaleString()} 字）
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <Suspense fallback={<div className="text-sm text-muted-foreground">正在加载富文本渲染…</div>}>
+                                            <MarkdownBody content={msg.content}/>
+                                        </Suspense>
+                                        {msg.content.length > LONG_CONTENT_THRESHOLD && (
+                                            <button
+                                                onClick={() => setContentExpanded(false)}
+                                                className="not-prose mt-3 rounded-lg border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent"
+                                            >
+                                                收起长文
+                                            </button>
+                                        )}
+                                    </>
+                                )}
                             </div>
                         )}
 
@@ -165,71 +187,4 @@ export default function ChatMessageView({
     );
 }
 
-/** Markdown 正文渲染（代码块带复制按钮） */
-function MarkdownBody({content}: {content: string}) {
-    const [copiedCode, setCopiedCode] = useState(false);
-    const copyCode = (code: string) => {
-        navigator.clipboard.writeText(code).then(() => {
-            setCopiedCode(true);
-            setTimeout(() => setCopiedCode(false), 1500);
-        }).catch(() => {});
-    };
-    return (
-        <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath]}
-            rehypePlugins={[rehypeKatex]}
-            components={{
-                h1: ({node, ...props}) => <h1 className="text-2xl font-bold my-4" {...props}/>,
-                h2: ({node, ...props}) => <h2 className="text-xl font-semibold my-3" {...props}/>,
-                h3: ({node, ...props}) => <h3 className="text-lg font-semibold my-3" {...props}/>,
-                p: ({node, ...props}) => <p className="my-2 leading-7" {...props}/>,
-                ul: ({node, ...props}) => <ul className="list-disc pl-6 my-2" {...props}/>,
-                ol: ({node, ...props}) => <ol className="list-decimal pl-6 my-2" {...props}/>,
-                li: ({node, ...props}) => <li className="my-0.5" {...props}/>,
-                a: ({node, ...props}) => <a className="text-violet-600 hover:underline dark:text-violet-400" target="_blank" rel="noreferrer" {...props}/>,
-                blockquote: ({node, ...props}) => (
-                    <blockquote className="border-l-4 border-gray-300 pl-4 my-3 text-gray-600" {...props}/>
-                ),
-                table: ({node, ...props}) => (
-                    <div className="my-3 overflow-x-auto"><table className="border-collapse text-sm" {...props}/></div>
-                ),
-                th: ({node, ...props}) => <th className="border px-3 py-1.5 bg-muted" {...props}/>,
-                td: ({node, ...props}) => <td className="border px-3 py-1.5" {...props}/>,
-                code({node, inline, className, children, ...props}: {
-                    node?: any;
-                    inline?: boolean;
-                    className?: string;
-                    children?: React.ReactNode;
-                }) {
-                    const match = /language-(\w+)/.exec(className || "");
-                    const code = String(children).replace(/\n$/, "");
-                    if (!inline && match) {
-                        return (
-                            <div className="group/code relative my-3">
-                                <div className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded bg-white/10 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover/code:opacity-100">
-                                    <button onClick={() => copyCode(code)} className="flex items-center gap-1 hover:text-green-300">
-                                        {copiedCode ? <Check className="size-3"/> : <Copy className="size-3"/>}
-                                        {copiedCode ? "已复制" : "复制"}
-                                    </button>
-                                </div>
-                                <SyntaxHighlighter
-                                    style={vscDarkPlus}
-                                    language={match[1]}
-                                    PreTag="div"
-                                    className="rounded-xl p-4 text-sm !mt-0"
-                                    customStyle={{background: "#1e1e1e", fontSize: "0.875rem", lineHeight: "1.6"}}
-                                    {...props}
-                                >
-                                    {code}
-                                </SyntaxHighlighter>
-                            </div>
-                        );
-                    }
-                    return <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm break-words" {...props}>{children}</code>;
-                },
-            }}
-        >
-            {content}
-        </ReactMarkdown>
-    );
-}
+export default memo(ChatMessageView);

@@ -114,7 +114,7 @@ export class ChatStreamParser {
         const decoded = decodeSourcesFrame(this.buffer);
         if (decoded.meta === undefined) return;
         this.meta = decoded.meta;
-        this.content += decoded.text;
+        // 尾随文本留在缓冲区，交给后续换行解析或裸文本分支处理，避免重复追加。
         this.buffer = decoded.text;
     }
 
