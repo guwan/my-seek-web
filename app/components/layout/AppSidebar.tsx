@@ -2,7 +2,7 @@ import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { BookOpenText, MessageSquareText, PenLine, PlugZap, Plus, Sparkles } from "lucide-react";
+import { BookOpenText, Database, MessageSquareText, PenLine, PlugZap, Plus, Sparkles } from "lucide-react";
 
 import { SearchForm } from "~/components/SearchForm";
 import {
@@ -134,6 +134,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                     <NavLink to="/write">
                                         <BookOpenText className="size-4" />
                                         写作工作台
+                                    </NavLink>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton asChild isActive={location.pathname.startsWith("/knowledge")}>
+                                    <NavLink to="/knowledge">
+                                        <Database className="size-4" />
+                                        知识库
                                     </NavLink>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>

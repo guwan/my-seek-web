@@ -141,6 +141,18 @@ class HttpClient {
         });
     }
 
+    /** 上传文件：不设置 Content-Type，由浏览器生成 multipart boundary */
+    async postForm<T>(endpoint: string, formData: FormData, options?: RequestInit): Promise<T> {
+        const url = this.resolveUrl(endpoint);
+        const response = await fetch(url.toString(), {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: formData,
+            ...options,
+        });
+        return this.handleResponse<T>(response);
+    }
+
     /**
      * 拼接请求地址。SSR 环境下没有 window，需要安全降级。
      */

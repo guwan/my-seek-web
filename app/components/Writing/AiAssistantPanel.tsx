@@ -31,6 +31,10 @@ export default function AiAssistantPanel({novel, chapterId, selection, onApply}:
             message.error("请先填写写作指令");
             return;
         }
+        if (action === "imitate" && !custom.trim() && !novel.style?.trim()) {
+            message.error("请先填写风格描述，或在设定页补充作品风格");
+            return;
+        }
         setLoading(true);
         setResult("");
         const controller = new AbortController();
@@ -84,11 +88,13 @@ export default function AiAssistantPanel({novel, chapterId, selection, onApply}:
                 ))}
             </div>
 
-            {action === "custom" && (
+            {(action === "custom" || action === "imitate") && (
                 <textarea
                     value={custom}
                     onChange={e => setCustom(e.target.value)}
-                    placeholder="例如：描写主角第一次进入残骸时的紧张心情……"
+                    placeholder={action === "imitate"
+                        ? "补充风格指令，如：短句为主、冷峻克制、第三人称限知视角……"
+                        : "例如：描写主角第一次进入残骸时的紧张心情……"}
                     className="w-full resize-none rounded-lg border bg-background p-2.5 text-sm outline-none focus:ring-2 focus:ring-ring/40"
                     rows={3}
                 />

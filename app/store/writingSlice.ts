@@ -28,8 +28,8 @@ const writingSlice = createSlice({
     initialState,
     reducers: {
         // ---- 作品 ----
-        addNovel(state) {
-            const novel = createNovel();
+        addNovel(state, action: PayloadAction<Novel | undefined>) {
+            const novel = action.payload ?? createNovel();
             state.novels.unshift(novel);
             state.activeNovelId = novel.id;
             state.activeChapterId = novel.volumes[0].chapters[0].id;
@@ -41,7 +41,7 @@ const writingSlice = createSlice({
                 novel.updatedAt = Date.now();
             }
         },
-        updateNovelMeta(state, action: PayloadAction<{id: string; patch: Partial<Pick<Novel, 'genre' | 'description' | 'cover'>>}>) {
+        updateNovelMeta(state, action: PayloadAction<{id: string; patch: Partial<Pick<Novel, 'genre' | 'description' | 'style' | 'cover'>>}>) {
             const novel = state.novels.find(n => n.id === action.payload.id);
             if (novel) {
                 Object.assign(novel, action.payload.patch);

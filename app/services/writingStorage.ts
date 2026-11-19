@@ -30,7 +30,7 @@ export function createVolume(title = "第一卷"): Volume {
     };
 }
 
-export function createNovel(title = "未命名作品"): Novel {
+export function createNovel(title = "未命名作品", style = ""): Novel {
     const now = Date.now();
     const firstVolume = createVolume("第一卷");
     firstVolume.chapters.push(createChapter("第一章"));
@@ -39,6 +39,7 @@ export function createNovel(title = "未命名作品"): Novel {
         title,
         genre: "",
         description: "",
+        style,
         cover: "",
         volumes: [firstVolume],
         characters: [],

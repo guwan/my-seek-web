@@ -1,12 +1,15 @@
 import {httpClient} from "~/lib/request";
 import type {Novel} from "~/services/writing";
+import {readChatStream} from "~/components/Chat/streamUtils";
+import {parseReasoning} from "~/components/Chat/reasoning";
 
-export type AiWriteAction = "continue" | "polish" | "expand" | "custom";
+export type AiWriteAction = "continue" | "polish" | "expand" | "imitate" | "custom";
 
 export const AI_WRITE_ACTIONS: {key: AiWriteAction; label: string; hint: string}[] = [
     {key: "continue", label: "续写", hint: "根据前文与设定，接着往下写"},
     {key: "polish", label: "润色", hint: "改进文笔，保持原意"},
     {key: "expand", label: "扩写", hint: "丰富细节与描写"},
+    {key: "imitate", label: "仿写", hint: "仅按风格描述模仿笔法，不依赖范文"},
     {key: "custom", label: "自定义", hint: "给 AI 一条明确的写作指令"},
 ];
 
@@ -16,6 +19,7 @@ function buildContext(novel: Novel, chapterId: string, selection: string): strin
     lines.push(`作品名称：《${novel.title}》`);
     if (novel.genre) lines.push(`题材：${novel.genre}`);
     if (novel.description) lines.push(`简介：${novel.description}`);
+    if (novel.style) lines.push(`\n【风格要求】\n${novel.style}`);
     if (chapter) {
         lines.push(`\n【当前章节】${chapter.title}`);
         if (chapter.outline) lines.push(`章节大纲：${chapter.outline}`);
@@ -51,6 +55,8 @@ function buildPrompt(action: AiWriteAction, custom: string, context: string): st
             return `你是小说写作助手。请润色下面这段选中的文字（若无选中文字则润色正文结尾），使其更生动流畅，保持原意与字数相近。\n\n${context}\n\n${rules}`;
         case "expand":
             return `你是小说写作助手。请扩写下面这段选中的文字（若无选中文字则扩写正文结尾），补充动作、心理与环境细节，使其更丰满。\n\n${context}\n\n${rules}`;
+        case "imitate":
+            return `你是小说写作助手。请严格按“风格要求”中的描述进行仿写，只模仿题材气质、叙述人称、句式节奏、语言密度和情绪基调，不要引用或臆造任何范文原文。${custom ? `\n\n补充风格指令：${custom}` : ""}\n\n${context}\n\n${rules}`;
         case "custom":
             return `你是小说写作助手。请按用户的写作指令创作。\n\n写作指令：${custom}\n\n${context}\n\n${rules}`;
     }
@@ -75,23 +81,15 @@ export async function streamAiWrite(
     const response = await httpClient.postRet(
         "/api/ai/chat/stream",
         {
-            conversationId: `writing-${novel.id}-${chapterId}`,
+            conversationId: `writing-${novel.id}-${chapterId}-${Date.now()}`,
             message: prompt,
             model,
         },
         {signal},
     );
     if (!response.ok) throw new Error(`请求失败 (${response.status})`);
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("服务端未返回流式响应");
-
-    const decoder = new TextDecoder();
-    let full = "";
-    while (true) {
-        const {done, value} = await reader.read();
-        if (done) break;
-        full += decoder.decode(value, {stream: true});
-        onChunk(full);
-    }
-    return full;
+    const snapshot = await readChatStream(response, s => onChunk(parseReasoning(s.content).content));
+    const clean = parseReasoning(snapshot.content).content;
+    onChunk(clean);
+    return clean;
 }

@@ -42,6 +42,8 @@ export interface Novel {
     title: string;
     genre: string;
     description: string;
+    /** 风格描述：用于仿写，不依赖具体范文 */
+    style?: string;
     cover: string;
     volumes: Volume[];
     characters: Character[];

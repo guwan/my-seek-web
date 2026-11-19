@@ -17,7 +17,7 @@ import {useAppDispatch} from "~/store";
 import {CHAT_LIST_REFRESH_EVENT, NEW_CHAT_EVENT} from "~/lib/constants";
 import ChatMessageView from "./ChatMessageView";
 import {parseReasoning, isReasoningStreaming} from "./reasoning";
-import {decodeSourcesFrame, type SearchMeta} from "./streamUtils";
+import {readChatStream, type SearchMeta} from "./streamUtils";
 
 /** 统一的开关样式：选中态紫蓝渐变 + 光晕，未选中态柔和浅底；两个开关完全一致 */
 const toggleClass = (active: boolean) =>
@@ -121,13 +121,35 @@ const ChatComponent = () => {
         return newId;
     };
 
-    /** 执行发送 / 重新生成：streamText 为本次用户输入 */
+    /** 执行发送 / 重新生成：text 为本次用户输入 */
     const runStream = async (text: string, convId: string, aiId: number) => {
         setIsSending(true);
         const controller = new AbortController();
         abortRef.current = controller;
         let reasoningStart = 0;
         let reasoningEnd = 0;
+
+        const applySnapshot = (snapshot: {content: string; meta?: SearchMeta; done: boolean}) => {
+            const parsed = parseReasoning(snapshot.content);
+            const reasoningStreaming = isReasoningStreaming(snapshot.content);
+            if (parsed.reasoning && !reasoningStart) reasoningStart = Date.now();
+            if (reasoningStart && !reasoningEnd && !reasoningStreaming && parsed.reasoning) {
+                reasoningEnd = Date.now();
+            }
+            setMessages(prev => prev.map(msg =>
+                msg.id === aiId ? {
+                    ...msg,
+                    content: parsed.content,
+                    reasoning: parsed.reasoning || undefined,
+                    reasoningStreaming,
+                    reasoningMs: reasoningEnd && reasoningStart ? reasoningEnd - reasoningStart : undefined,
+                    sources: snapshot.meta?.sources ?? [],
+                    searchPerformed: snapshot.meta?.performed ?? false,
+                    searchEngine: snapshot.meta?.engine,
+                    isThinking: !snapshot.done && !snapshot.content,
+                } : msg
+            ));
+        };
 
         try {
             const response = await httpClient.postRet('/api/ai/chat/stream', {
@@ -139,56 +161,17 @@ const ChatComponent = () => {
             }, {signal: controller.signal});
 
             if (!response.ok) throw new Error(`请求失败 (${response.status})`);
-            const reader = response.body?.getReader();
-            if (!reader) throw new Error('服务端未返回流式响应');
-
-            const decoder = new TextDecoder();
-            let raw = '';
-            let searchMeta: SearchMeta | undefined;
-
-            while (true) {
-                const {done, value} = await reader.read();
-                if (done) break;
-                raw += decoder.decode(value, {stream: true});
-
-                // 解析首帧中的联网元数据（是否已搜索 / 引擎 / 来源）
-                if (raw.startsWith('\u0000MYSEEK_SOURCES:')) {
-                    const decoded = decodeSourcesFrame(raw);
-                    if (decoded.meta !== undefined) {
-                        searchMeta = decoded.meta;
-                        raw = decoded.text;
-                    } else {
-                        continue; // 首帧未接收完整
-                    }
-                }
-
-                const parsed = parseReasoning(raw);
-                const reasoningStreaming = isReasoningStreaming(raw);
-                if (parsed.reasoning && !reasoningStart) reasoningStart = Date.now();
-                if (reasoningStart && !reasoningEnd && !reasoningStreaming && parsed.reasoning) {
-                    reasoningEnd = Date.now();
-                }
-
-                setMessages(prev => prev.map(msg =>
-                    msg.id === aiId ? {
-                        ...msg,
-                        content: parsed.content,
-                        reasoning: parsed.reasoning || undefined,
-                        reasoningStreaming,
-                        reasoningMs: reasoningEnd && reasoningStart ? reasoningEnd - reasoningStart : undefined,
-                        sources: searchMeta?.sources ?? [],
-                        searchPerformed: searchMeta?.performed ?? false,
-                        searchEngine: searchMeta?.engine,
-                        isThinking: !raw,
-                    } : msg
-                ));
-            }
-
+            await readChatStream(response, applySnapshot);
             window.dispatchEvent(new Event(CHAT_LIST_REFRESH_EVENT));
         } catch (error: any) {
-            if (error?.name === "AbortError") return;
+            if (error?.name === "AbortError") {
+                setMessages(prev => prev.map(msg =>
+                    msg.id === aiId ? {...msg, content: msg.content || "已停止生成", isThinking: false} : msg
+                ));
+                return;
+            }
             console.error('发送消息失败:', error);
-            message.error('请求失败，请重试');
+            message.error(error?.message || '请求失败，请重试');
             setMessages(prev => prev.map(msg =>
                 msg.id === aiId ? {...msg, content: '请求失败，请重试', isThinking: false, error: true} : msg
             ));

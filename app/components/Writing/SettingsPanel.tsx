@@ -4,16 +4,17 @@ import type {Novel, WorldEntry} from "~/services/writing";
 import {
     addCharacter, addOutline, addWorldEntry,
     deleteCharacter, deleteOutline, deleteWorldEntry,
-    updateCharacter, updateOutline, updateWorldEntry,
+    updateCharacter, updateNovelMeta, updateOutline, updateWorldEntry,
 } from "~/store/writingSlice";
 import {useAppDispatch} from "~/store";
 
-type Tab = "outline" | "characters" | "world";
+type Tab = "outline" | "characters" | "world" | "style";
 
 const TABS: {key: Tab; label: string}[] = [
     {key: "outline", label: "大纲"},
     {key: "characters", label: "角色"},
     {key: "world", label: "世界观"},
+    {key: "style", label: "风格"},
 ];
 
 export default function SettingsPanel({novel, activeChapterOutline, onChapterOutlineChange}: {
@@ -159,6 +160,27 @@ export default function SettingsPanel({novel, activeChapterOutline, onChapterOut
                         ))}
                         {novel.world.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">还没有设定，点上方添加</p>}
                     </>
+                )}
+
+                {tab === "style" && (
+                    <div className="space-y-3">
+                        <div>
+                            <label className="mb-1 block text-xs font-medium">仿写风格描述</label>
+                            <textarea
+                                value={novel.style ?? ""}
+                                onChange={e => dispatch(updateNovelMeta({
+                                    id: novelId,
+                                    patch: {style: e.target.value},
+                                }))}
+                                placeholder="例如：冷峻克制的第三人称限知视角；短句为主；大量环境细节；情绪压在动作里，不直接抒情……"
+                                rows={8}
+                                className="w-full resize-none rounded-lg border bg-background p-2.5 text-sm leading-relaxed outline-none focus:ring-2 focus:ring-ring/40"
+                            />
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                仿写不依赖范文，只按这里的题材、人称、节奏、句式与语言密度生成内容。
+                            </p>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>

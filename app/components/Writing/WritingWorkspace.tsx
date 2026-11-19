@@ -7,7 +7,7 @@ import {
 import type {RootState} from "~/store";
 import {useAppDispatch} from "~/store";
 import {
-    addChapter, addNovel, addVolume, deleteChapter, deleteNovel, deleteVolume,
+    addChapter, addVolume, deleteChapter, deleteNovel, deleteVolume,
     renameNovel, renameVolume, selectChapter, selectNovel, updateChapter,
     updateNovelMeta,
 } from "~/store/writingSlice";
@@ -17,6 +17,7 @@ import {message} from "~/components/Message";
 import {NEW_WRITING_EVENT} from "~/lib/constants";
 import AiAssistantPanel from "./AiAssistantPanel";
 import SettingsPanel from "./SettingsPanel";
+import NewWritingDialog from "./NewWritingDialog";
 
 const STATUS_OPTIONS: {value: ChapterStatus; label: string}[] = [
     {value: "draft", label: "草稿"},
@@ -34,21 +35,21 @@ export default function WritingWorkspace() {
     const [collapsedVolumes, setCollapsedVolumes] = useState<Record<string, boolean>>({});
     const [selection, setSelection] = useState<{start: number; end: number; text: string}>({start: 0, end: 0, text: ""});
     const [rightTab, setRightTab] = useState<"ai" | "settings">("ai");
+    const [newWritingOpen, setNewWritingOpen] = useState(false);
     const editorRef = useRef<HTMLTextAreaElement>(null);
 
-    // 响应侧边栏“新建写作”：新建一部作品并选中。用 sessionStorage 标记兜底跨路由跳转丢失的事件。
+    // 响应侧边栏“新建写作”：先打开新建弹窗，可选择风格仿写。sessionStorage 用于兜底跨路由事件丢失。
     useEffect(() => {
-        const create = () => {
-            dispatch(addNovel());
+        const open = () => {
+            setNewWritingOpen(true);
             window.sessionStorage.removeItem(NEW_WRITING_EVENT);
-            message.success("已新建作品，开始写作吧");
         };
-        window.addEventListener(NEW_WRITING_EVENT, create);
+        window.addEventListener(NEW_WRITING_EVENT, open);
         if (window.sessionStorage.getItem(NEW_WRITING_EVENT) === "1") {
-            create();
+            open();
         }
-        return () => window.removeEventListener(NEW_WRITING_EVENT, create);
-    }, [dispatch]);
+        return () => window.removeEventListener(NEW_WRITING_EVENT, open);
+    }, []);
 
     const totalWords = useMemo(() => (novel ? countNovelWords(novel) : 0), [novel]);
 
@@ -56,7 +57,7 @@ export default function WritingWorkspace() {
         return (
             <div className="flex h-full flex-col items-center justify-center gap-4">
                 <p className="text-muted-foreground">还没有作品</p>
-                <button onClick={() => dispatch(addNovel())} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground">
+                <button onClick={() => setNewWritingOpen(true)} className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground">
                     创建第一本书
                 </button>
             </div>
@@ -95,7 +96,7 @@ export default function WritingWorkspace() {
                             className="min-w-0 flex-1 truncate bg-transparent text-sm font-semibold outline-none"
                         />
                     </div>
-                    <button title="新建作品" onClick={() => dispatch(addNovel())} className="text-muted-foreground hover:text-foreground">
+                    <button title="新建作品" onClick={() => setNewWritingOpen(true)} className="text-muted-foreground hover:text-foreground">
                         <Plus className="size-4"/>
                     </button>
                 </div>
@@ -287,6 +288,8 @@ export default function WritingWorkspace() {
                     )}
                 </div>
             </aside>
+
+            <NewWritingDialog open={newWritingOpen} onClose={() => setNewWritingOpen(false)} />
         </div>
     );
 }

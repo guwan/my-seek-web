@@ -14,6 +14,7 @@ import {
 export default function Layout() {
     const location = useLocation();
     const isWriting = location.pathname.startsWith("/write");
+    const isKnowledge = location.pathname.startsWith("/knowledge");
     const isProviders = location.pathname.startsWith("/providers");
     return (
         <SidebarProvider className="h-svh overflow-hidden">
@@ -29,15 +30,15 @@ export default function Layout() {
                         <BreadcrumbList>
                             <BreadcrumbItem className="hidden md:block">
                                 <BreadcrumbLink asChild>
-                                    <Link to={isWriting ? "/write" : isProviders ? "/providers" : "/"}>
-                                        {isWriting ? "写作" : isProviders ? "设置" : "对话"}
+                                    <Link to={isWriting ? "/write" : isKnowledge ? "/knowledge" : isProviders ? "/providers" : "/"}>
+                                        {isWriting ? "写作" : isKnowledge ? "知识库" : isProviders ? "设置" : "对话"}
                                     </Link>
                                 </BreadcrumbLink>
                             </BreadcrumbItem>
                             <BreadcrumbSeparator className="hidden md:block" />
                             <BreadcrumbItem>
                                 <BreadcrumbPage>
-                                    {isWriting ? "新建章节" : isProviders ? "第三方 AI 接口" : "问一个问题"}
+                                    {isWriting ? "新建章节" : isKnowledge ? "文档管理" : isProviders ? "第三方 AI 接口" : "问一个问题"}
                                 </BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>
