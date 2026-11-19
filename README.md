@@ -74,9 +74,19 @@ pnpm dev
 ### 校验与构建
 
 ```bash
+pnpm test        # Vitest 单元测试与组件测试
 pnpm typecheck   # react-router typegen + tsc
 pnpm build       # 产出静态站点到 build/client
 ```
+
+## CI
+
+`.github/workflows/ci.yml` 会在 push / pull request 到 `main` 或 `master` 时执行：
+
+1. `pnpm install --frozen-lockfile`
+2. `pnpm test`
+3. `pnpm typecheck`
+4. `pnpm build`
 
 ## 部署
 

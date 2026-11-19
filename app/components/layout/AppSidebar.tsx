@@ -33,6 +33,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const dispatch = useAppDispatch();
     const [backendHistory, setBackendHistory] = useState<MenuItem[]>([]);
     const [search, setSearch] = useState("");
+    const [visibleCount, setVisibleCount] = useState(30);
     const localHistory = useSelector((state: RootState) => state.chatHistorySetter.messages);
     const currentUserAccess = useSelector((state: RootState) => state.currentUserSetter.value.access);
     const userLoadedRef = useRef(false);
@@ -96,6 +97,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     }, [backendHistory, localHistory, search]);
 
     const groupedHistory = useMemo(() => groupByTime(historyItems), [historyItems]);
+    const visibleGroups = useMemo(() => {
+        let remaining = visibleCount;
+        return groupedHistory
+            .map(group => {
+                const items = group.items.slice(0, remaining);
+                remaining -= items.length;
+                return {...group, items};
+            })
+            .filter(group => group.items.length > 0);
+    }, [groupedHistory, visibleCount]);
+
+    useEffect(() => {
+        setVisibleCount(30);
+    }, [search]);
 
     const startNewChat = () => {
         navigate("/");
@@ -204,9 +219,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
                 <SidebarGroup className="min-h-0 flex-1 overflow-y-auto">
                     <SidebarGroupContent>
-                        {groupedHistory.length > 0 ? (
+                        {visibleGroups.length > 0 ? (
                             <div className="space-y-3">
-                                {groupedHistory.map(group => (
+                                {visibleGroups.map(group => (
                                     <div key={group.label}>
                                         <SidebarGroupLabel className="px-2 py-1 text-[11px]">{group.label}</SidebarGroupLabel>
                                         <SidebarMenu>
@@ -229,6 +244,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                         </SidebarMenu>
                                     </div>
                                 ))}
+                                {visibleCount < historyItems.length && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setVisibleCount(count => count + 30)}
+                                        className="w-full rounded-md py-2 text-center text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                                    >
+                                        加载更多（已显示 {Math.min(visibleCount, historyItems.length)} / {historyItems.length}）
+                                    </button>
+                                )}
                             </div>
                         ) : (
                             <p className="px-2 py-4 text-xs text-muted-foreground">

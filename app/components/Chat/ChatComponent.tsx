@@ -1,4 +1,4 @@
-import {useState, useRef, useEffect} from 'react';
+import {useCallback, useState, useRef, useEffect} from 'react';
 import {httpClient} from "~/lib/request";
 import {v4 as uuidv4} from 'uuid';
 import {useSelector} from "react-redux";
@@ -110,9 +110,9 @@ const ChatComponent = () => {
         }
     }, [id]);
 
-    const handleToggleReasoning = (msgId: number) => {
+    const handleToggleReasoning = useCallback((msgId: number) => {
         setReasoningExpanded(prev => ({...prev, [msgId]: !prev[msgId]}));
-    };
+    }, []);
 
     // 生成新的会话ID
     const generateNewConversation = () => {
@@ -128,8 +128,13 @@ const ChatComponent = () => {
         abortRef.current = controller;
         let reasoningStart = 0;
         let reasoningEnd = 0;
+        let pendingSnapshot: {content: string; meta?: SearchMeta; done: boolean} | null = null;
+        let frame: number | null = null;
 
-        const applySnapshot = (snapshot: {content: string; meta?: SearchMeta; done: boolean}) => {
+        const flushSnapshot = () => {
+            const snapshot = pendingSnapshot;
+            pendingSnapshot = null;
+            if (!snapshot) return;
             const parsed = parseReasoning(snapshot.content);
             const reasoningStreaming = isReasoningStreaming(snapshot.content);
             if (parsed.reasoning && !reasoningStart) reasoningStart = Date.now();
@@ -151,6 +156,16 @@ const ChatComponent = () => {
             ));
         };
 
+        // 流式 chunk 可能非常密集，用 rAF 合并到每帧一次渲染。
+        const applySnapshot = (snapshot: {content: string; meta?: SearchMeta; done: boolean}) => {
+            pendingSnapshot = snapshot;
+            if (frame !== null) return;
+            frame = requestAnimationFrame(() => {
+                frame = null;
+                flushSnapshot();
+            });
+        };
+
         try {
             const response = await httpClient.postRet('/api/ai/chat/stream', {
                 conversationId: convId,
@@ -162,6 +177,9 @@ const ChatComponent = () => {
 
             if (!response.ok) throw new Error(`请求失败 (${response.status})`);
             await readChatStream(response, applySnapshot);
+            if (frame !== null) cancelAnimationFrame(frame);
+            frame = null;
+            flushSnapshot();
             window.dispatchEvent(new Event(CHAT_LIST_REFRESH_EVENT));
         } catch (error: any) {
             if (error?.name === "AbortError") {
@@ -176,6 +194,8 @@ const ChatComponent = () => {
                 msg.id === aiId ? {...msg, content: '请求失败，请重试', isThinking: false, error: true} : msg
             ));
         } finally {
+            if (frame !== null) cancelAnimationFrame(frame);
+            pendingSnapshot = null;
             setIsSending(false);
             abortRef.current = null;
         }
