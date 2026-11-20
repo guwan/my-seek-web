@@ -174,6 +174,32 @@ const writingSlice = createSlice({
             state.activeNovelId = action.payload.novelId;
             state.activeChapterId = action.payload.chapterId;
         },
+
+        /**
+         * 云端作品并入本地状态。
+         * 同 id 时以 updatedAt 较新的一方为准，本地独有的作品保留并等待上传。
+         */
+        replaceWritingFromServer(state, action: PayloadAction<Novel[]>) {
+            const remote = action.payload ?? [];
+            if (remote.length > 0) {
+                const localById = new Map(state.novels.map(n => [n.id, n]));
+                const remoteIds = new Set(remote.map(n => n.id));
+                const merged = remote.map(n => {
+                    const local = localById.get(n.id);
+                    return local && local.updatedAt > n.updatedAt ? local : n;
+                });
+                state.novels = [...merged, ...state.novels.filter(n => !remoteIds.has(n.id))];
+            }
+            if (state.novels.length === 0) return;
+            if (!state.activeNovelId || !state.novels.some(n => n.id === state.activeNovelId)) {
+                state.activeNovelId = state.novels[0].id;
+            }
+            const active = state.novels.find(n => n.id === state.activeNovelId);
+            const chapterIds = active?.volumes.flatMap(v => v.chapters).map(c => c.id) ?? [];
+            if (!state.activeChapterId || !chapterIds.includes(state.activeChapterId)) {
+                state.activeChapterId = active?.volumes[0]?.chapters[0]?.id ?? null;
+            }
+        },
     },
 });
 
@@ -184,7 +210,7 @@ export const {
     addCharacter, updateCharacter, deleteCharacter,
     addWorldEntry, updateWorldEntry, deleteWorldEntry,
     addOutline, updateOutline, deleteOutline,
-    selectNovelAndChapter,
+    selectNovelAndChapter, replaceWritingFromServer,
 } = writingSlice.actions;
 
 /** 每次写作状态变化后持久化到 localStorage */

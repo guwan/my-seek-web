@@ -2,8 +2,8 @@ import {useEffect, useState} from 'react';
 import {Loader2, PlugZap, Plus, Trash2, Plug, CheckCircle2, XCircle, Pencil} from "lucide-react";
 import {message} from "~/components/Message";
 import {
-    createProvider, deleteProvider, getProviders, testProvider, toggleProvider, updateProvider,
-    type AiProvider,
+    createProvider, deleteProvider, getOllamaConfig, getProviders, testOllamaConfig, testProvider,
+    toggleProvider, updateOllamaConfig, updateProvider, type AiProvider, type OllamaConfig,
 } from "~/services/providerService";
 import {useAppDispatch} from "~/store";
 import {fetchModels} from "~/store/modelSlice";
@@ -27,6 +27,23 @@ export default function ProviderManager() {
     const [editing, setEditing] = useState(false);
     const [form, setForm] = useState<FormState>(emptyForm());
     const [testing, setTesting] = useState(false);
+    const [ollamaConfig, setOllamaConfig] = useState<OllamaConfig | null>(null);
+    const [ollamaForm, setOllamaForm] = useState<OllamaConfig>({
+        baseUrl: "", defaultChatModel: "", embeddingModel: "", pullModelStrategy: "NEVER",
+    });
+    const [ollamaEditing, setOllamaEditing] = useState(false);
+    const [ollamaTesting, setOllamaTesting] = useState(false);
+    const [ollamaModels, setOllamaModels] = useState<string[]>([]);
+
+    const applyOllamaConfig = (cfg: OllamaConfig) => {
+        setOllamaConfig(cfg);
+        setOllamaForm({
+            baseUrl: cfg.baseUrl ?? "",
+            defaultChatModel: cfg.defaultChatModel ?? "",
+            embeddingModel: cfg.embeddingModel ?? "",
+            pullModelStrategy: cfg.pullModelStrategy ?? "NEVER",
+        });
+    };
 
     const load = async () => {
         setLoading(true);
@@ -38,6 +55,12 @@ export default function ProviderManager() {
             message.error(e?.message || "加载接口列表失败");
         } finally {
             setLoading(false);
+        }
+        try {
+            const cfg = await getOllamaConfig();
+            if (cfg.success && cfg.data) applyOllamaConfig(cfg.data);
+        } catch {
+            // Ollama 配置读取失败不阻断接口列表
         }
     };
 
@@ -62,6 +85,8 @@ export default function ProviderManager() {
     };
 
     const buildPayload = () => ({
+        // 更新时必须带 id，否则后端同名校验会把自己的配置当成冲突
+        id: form.id || undefined,
         name: form.name.trim(),
         displayName: form.displayName.trim(),
         baseUrl: form.baseUrl.trim(),
@@ -144,14 +169,57 @@ export default function ProviderManager() {
         }
     };
 
+    const startOllamaEdit = () => {
+        if (ollamaConfig) applyOllamaConfig(ollamaConfig);
+        setOllamaModels([]);
+        setOllamaEditing(true);
+    };
+
+    const handleOllamaSave = async () => {
+        if (!ollamaForm.baseUrl.trim() || !ollamaForm.defaultChatModel.trim() || !ollamaForm.embeddingModel.trim()) {
+            message.error("请填写 Ollama 地址、默认聊天模型和嵌入模型");
+            return;
+        }
+        try {
+            const res = await updateOllamaConfig(ollamaForm);
+            if (res.success) {
+                message.success("Ollama 配置已保存，地址和默认模型立即生效");
+                setOllamaEditing(false);
+                await load();
+                dispatch(fetchModels());
+            } else message.error(res.msg || "保存失败");
+        } catch (e: any) {
+            message.error(e?.message || "保存失败");
+        }
+    };
+
+    const handleOllamaTest = async () => {
+        if (!ollamaForm.baseUrl.trim()) {
+            message.error("请填写 Ollama 地址");
+            return;
+        }
+        setOllamaTesting(true);
+        try {
+            const res = await testOllamaConfig(ollamaForm);
+            if (res.success) {
+                setOllamaModels(res.data ?? []);
+                message.success(`连接成功，发现 ${res.data?.length ?? 0} 个模型`);
+            } else message.error(res.msg || "连接失败");
+        } catch (e: any) {
+            message.error(e?.message || "连接失败");
+        } finally {
+            setOllamaTesting(false);
+        }
+    };
+
     return (
         <div className="mx-auto w-full max-w-5xl space-y-6 px-4 py-8">
             <div className="flex items-start justify-between">
                 <div>
                     <h1 className="text-2xl font-semibold">第三方 AI 接口</h1>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        添加任何兼容 OpenAI Chat Completions 协议的服务（DeepSeek、Moonshot、智谱、OpenAI 等）。
-                        添加后模型会出现在对话页的模型选择器中。
+                        添加任何兼容 OpenAI Chat Completions 协议的服务（DeepSeek、Moonshot、智谱、OpenAI 等），
+                        或在下方配置内置 Ollama 的地址与模型；保存后模型会出现在对话页的模型选择器中。
                     </p>
                 </div>
                 <button
@@ -211,6 +279,90 @@ export default function ProviderManager() {
                 </div>
             )}
 
+            <div className="space-y-4 rounded-xl border bg-card p-5 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h2 className="font-medium">Ollama 本地模型配置</h2>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            {ollamaConfig?.configured ? "当前使用已保存的配置" : "当前使用启动环境变量默认值"}
+                            ；地址和默认聊天模型保存后立即生效，嵌入模型与拉取策略需重启服务后生效。
+                        </p>
+                    </div>
+                    {!ollamaEditing && (
+                        <button onClick={startOllamaEdit}
+                                className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm hover:bg-accent">
+                            <Pencil className="size-3.5"/> 编辑配置
+                        </button>
+                    )}
+                </div>
+
+                {ollamaEditing ? (
+                    <div className="space-y-4">
+                        <Field label="Ollama 服务地址（Base URL）">
+                            <input value={ollamaForm.baseUrl}
+                                   onChange={e => setOllamaForm({...ollamaForm, baseUrl: e.target.value})}
+                                   placeholder="http://localhost:11434"
+                                   className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"/>
+                        </Field>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <Field label="默认聊天模型">
+                                <input value={ollamaForm.defaultChatModel}
+                                       onChange={e => setOllamaForm({...ollamaForm, defaultChatModel: e.target.value})}
+                                       placeholder="deepseek-r1:8b"
+                                       className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"/>
+                            </Field>
+                            <Field label="嵌入模型（重启后生效）">
+                                <input value={ollamaForm.embeddingModel}
+                                       onChange={e => setOllamaForm({...ollamaForm, embeddingModel: e.target.value})}
+                                       placeholder="nomic-embed-text"
+                                       className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/40"/>
+                            </Field>
+                        </div>
+                        <Field label="模型拉取策略（重启后生效）">
+                            <select value={ollamaForm.pullModelStrategy}
+                                    onChange={e => setOllamaForm({...ollamaForm, pullModelStrategy: e.target.value})}
+                                    className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring/40">
+                                <option value="NEVER">NEVER — 不自动拉取</option>
+                                <option value="WHEN_MISSING">WHEN_MISSING — 缺失时拉取</option>
+                                <option value="ALWAYS">ALWAYS — 每次启动拉取</option>
+                            </select>
+                        </Field>
+                        {ollamaModels.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                                {ollamaModels.map(m => (
+                                    <button key={m} onClick={() => setOllamaForm({...ollamaForm, defaultChatModel: m})}
+                                            className="rounded-md bg-muted px-2 py-0.5 text-[11px] hover:bg-accent">
+                                        {m}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <div className="flex gap-2 pt-1">
+                            <button onClick={handleOllamaSave}
+                                    className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                                保存配置
+                            </button>
+                            <button onClick={handleOllamaTest} disabled={ollamaTesting}
+                                    className="flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm hover:bg-accent disabled:opacity-50">
+                                {ollamaTesting ? <Loader2 className="size-4 animate-spin"/> : <PlugZap className="size-4"/>}
+                                测试并列出模型
+                            </button>
+                            <button onClick={() => setOllamaEditing(false)}
+                                    className="rounded-lg px-4 py-2 text-sm text-muted-foreground hover:bg-accent">
+                                取消
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="grid gap-2 text-sm sm:grid-cols-2">
+                        <span className="text-muted-foreground">服务地址：<code className="text-foreground">{ollamaConfig?.baseUrl || "未加载"}</code></span>
+                        <span className="text-muted-foreground">默认聊天模型：<code className="text-foreground">{ollamaConfig?.defaultChatModel || "未加载"}</code></span>
+                        <span className="text-muted-foreground">嵌入模型：<code className="text-foreground">{ollamaConfig?.embeddingModel || "未加载"}</code></span>
+                        <span className="text-muted-foreground">拉取策略：<code className="text-foreground">{ollamaConfig?.pullModelStrategy || "未加载"}</code></span>
+                    </div>
+                )}
+            </div>
+
             {loading ? (
                 <div className="flex justify-center py-16"><Loader2 className="size-6 animate-spin text-muted-foreground"/></div>
             ) : (
@@ -239,22 +391,30 @@ export default function ProviderManager() {
                                     ))}
                                 </div>
                             </div>
-                            {!p.builtIn && p.id && (
-                                <div className="flex shrink-0 gap-1">
-                                    <button onClick={() => handleToggle(p)} title={p.enabled ? "停用" : "启用"}
-                                            className="rounded-md p-2 text-muted-foreground hover:bg-accent">
-                                        {p.enabled ? <XCircle className="size-4"/> : <CheckCircle2 className="size-4"/>}
-                                    </button>
-                                    <button onClick={() => startEdit(p)} title="编辑"
+                            <div className="flex shrink-0 gap-1">
+                                {p.name === "ollama" && (
+                                    <button onClick={startOllamaEdit} title="配置 Ollama"
                                             className="rounded-md p-2 text-muted-foreground hover:bg-accent">
                                         <Pencil className="size-4"/>
                                     </button>
-                                    <button onClick={() => handleDelete(p)} title="删除"
-                                            className="rounded-md p-2 text-muted-foreground hover:text-destructive hover:bg-accent">
-                                        <Trash2 className="size-4"/>
-                                    </button>
-                                </div>
-                            )}
+                                )}
+                                {!p.builtIn && p.id && (
+                                    <>
+                                        <button onClick={() => handleToggle(p)} title={p.enabled ? "停用" : "启用"}
+                                                className="rounded-md p-2 text-muted-foreground hover:bg-accent">
+                                            {p.enabled ? <XCircle className="size-4"/> : <CheckCircle2 className="size-4"/>}
+                                        </button>
+                                        <button onClick={() => startEdit(p)} title="编辑"
+                                                className="rounded-md p-2 text-muted-foreground hover:bg-accent">
+                                            <Pencil className="size-4"/>
+                                        </button>
+                                        <button onClick={() => handleDelete(p)} title="删除"
+                                                className="rounded-md p-2 text-muted-foreground hover:text-destructive hover:bg-accent">
+                                            <Trash2 className="size-4"/>
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     ))}
                 </div>
