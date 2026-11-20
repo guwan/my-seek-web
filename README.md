@@ -56,7 +56,7 @@
 
 ### 环境要求
 
-- Node.js 22+
+- Node.js 24+
 - pnpm 11+
 - 后端服务已启动并监听 `8080` 端口（见 [my-seek](https://github.com/guwan/my-seek)）
 
@@ -95,7 +95,7 @@ pnpm build       # 产出静态站点到 build/client
 1. 用任意静态服务器托管 `build/client/` 并确保未知路径回退到 `index.html`；
 2. 配置反向代理，将 `/api` 转发到后端服务。
 
-仓库中的 `Dockerfile` 已适配 Node 22 + pnpm 11，并用 Nginx 托管 `build/client/`；`nginx.conf` 已配置 SPA 回退和 `/api/` 反向代理（含 SSE 不缓冲）。完整容器编排见仓库根目录的 `docker-compose.yml`。
+仓库中的 `Dockerfile` 已适配 Node 24 + pnpm 11，并用 Nginx 托管 `build/client/`；`nginx.conf` 已配置 SPA 回退和 `/api/` 反向代理（含 SSE 不缓冲）。完整容器编排见仓库根目录的 `docker-compose.yml`。
 
 ## 目录结构
 

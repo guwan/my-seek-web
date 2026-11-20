@@ -2,6 +2,9 @@
   "name": "my-seek-web",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "build": "react-router build",
     "dev": "react-router dev",
