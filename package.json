@@ -11,6 +11,7 @@
     "start": "react-router-serve ./build/server/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "e2e": "playwright test",
     "typecheck": "react-router typegen && tsc"
   },
   "dependencies": {
