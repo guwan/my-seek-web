@@ -10,7 +10,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/guwan/my-seek-web?style=social)](https://github.com/guwan/my-seek-web)
 
-**The web frontend for MySeek** — an AI chat workspace for enterprises with multi-model switching, streaming responses, web search, conversation management, knowledge base QA, and AI writing. It works with the [MySeek backend](https://github.com/guwan/my-seek).
+**The web frontend for MySeek** — an AI chat workspace for everyone with multi-model switching, streaming responses, web search, conversation management, knowledge base QA, and AI writing. It works with the [MySeek backend](https://github.com/guwan/my-seek).
 
 ---
 

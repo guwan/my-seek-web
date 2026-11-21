@@ -10,7 +10,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/guwan/my-seek-web?style=social)](https://github.com/guwan/my-seek-web)
 
-**MySeek 的 Web 前端** —— 一个面向企事业内部的 AI 对话工作台，支持多模型切换、流式输出、联网搜索、会话管理、知识库问答与 AI 写作。与 [MySeek 后端](https://github.com/guwan/my-seek) 配套使用。
+**MySeek 的 Web 前端** —— 一个面向所有人的 AI 对话工作台，支持多模型切换、流式输出、联网搜索、会话管理、知识库问答与 AI 写作。与 [MySeek 后端](https://github.com/guwan/my-seek) 配套使用。
 
 ---
 
