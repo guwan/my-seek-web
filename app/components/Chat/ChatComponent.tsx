@@ -87,11 +87,14 @@ const ChatComponent = () => {
     }, []);
 
     useEffect(() => {
+        let cancelled = false;
         const loadHistory = async () => {
             if (!id) return;
             setIsLoadingHistory(true);
             try {
                 const res = await getChatHistory({ conversationId: id });
+                // 快速切换会话时丢弃过期响应，避免旧会话内容覆盖新会话
+                if (cancelled) return;
                 if (res.success && res.data) {
                     const history: ChatMessage[] = res.data.map((msg: any) => {
                         const parsed = parseReasoning(msg.content || "");
@@ -107,14 +110,17 @@ const ChatComponent = () => {
                     setConversationId(id);
                 }
             } catch {
-                message.error("加载历史会话失败");
+                if (!cancelled) message.error("加载历史会话失败");
             } finally {
-                setIsLoadingHistory(false);
+                if (!cancelled) setIsLoadingHistory(false);
             }
         };
         if (id && id !== conversationId) {
             loadHistory();
         }
+        return () => { cancelled = true; };
+        // conversationId 由 loadHistory 自身设置，不作为依赖以免重复加载
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     const handleToggleReasoning = useCallback((msgId: number) => {
