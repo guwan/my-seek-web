@@ -1,5 +1,34 @@
 import {describe, expect, it} from "vitest";
-import {ChatStreamParser, decodeSourcesFrame} from "~/components/Chat/streamUtils";
+import {ChatStreamParser, decodeSourcesFrame, readChatStream} from "~/components/Chat/streamUtils";
+
+function streamResponse(chunks: string[], closeAtEnd: boolean): Response {
+    const encoder = new TextEncoder();
+    let index = 0;
+    return new Response(new ReadableStream<Uint8Array>({
+        pull(controller) {
+            if (index < chunks.length) {
+                controller.enqueue(encoder.encode(chunks[index++]));
+            } else if (closeAtEnd) {
+                controller.close();
+            }
+        },
+    }));
+}
+
+/** 模拟推理模型先静默一段时间再吐出首包 */
+function delayedStreamResponse(chunk: string, delayMs: number): Response {
+    const encoder = new TextEncoder();
+    let sent = false;
+    return new Response(new ReadableStream<Uint8Array>({
+        async pull(controller) {
+            if (sent) return;
+            sent = true;
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            controller.enqueue(encoder.encode(chunk));
+            controller.close();
+        },
+    }));
+}
 
 describe("ChatStreamParser", () => {
     it("解析结构化帧并拼接正文", () => {
@@ -43,6 +72,57 @@ describe("ChatStreamParser", () => {
         );
         expect(snapshot.meta?.engine).toBe("Wikipedia");
         expect(snapshot.content).toBe("正文");
+    });
+});
+
+describe("readChatStream", () => {
+    it("收到 done 帧后立即结束，不等待上游关闭连接", async () => {
+        const response = streamResponse([
+            'MYSEEK_FRAME:{"type":"content","text":"回答完成"}\n',
+            'MYSEEK_FRAME:{"type":"done"}\n',
+        ], false);
+
+        const snapshot = await readChatStream(response, undefined, {idleTimeoutMs: 5000});
+
+        expect(snapshot.content).toBe("回答完成");
+        expect(snapshot.done).toBe(true);
+    }, 3000);
+
+    it("上游既无 done 也不关闭连接时按空闲超时收尾", async () => {
+        const response = streamResponse([
+            'MYSEEK_FRAME:{"type":"content","text":"模型已输出完毕"}\n',
+        ], false);
+
+        const snapshot = await readChatStream(response, undefined, {idleTimeoutMs: 50});
+
+        expect(snapshot.content).toBe("模型已输出完毕");
+        expect(snapshot.done).toBe(true);
+    }, 3000);
+
+    it("首包前使用较长超时，慢思考模型不被空闲超时截断", async () => {
+        const response = delayedStreamResponse(
+            'MYSEEK_FRAME:{"type":"content","text":"慢思考后的回答"}\nMYSEEK_FRAME:{"type":"done"}\n',
+            40,
+        );
+
+        const snapshot = await readChatStream(response, undefined, {
+            firstTokenTimeoutMs: 2000,
+            idleTimeoutMs: 10,
+        });
+
+        expect(snapshot.content).toBe("慢思考后的回答");
+        expect(snapshot.done).toBe(true);
+    }, 3000);
+
+    it("正常结束的流仍然完整返回", async () => {
+        const response = streamResponse([
+            'MYSEEK_FRAME:{"type":"content","text":"你好"}\n',
+            'MYSEEK_FRAME:{"type":"done"}\n',
+        ], true);
+
+        const snapshot = await readChatStream(response);
+        expect(snapshot.content).toBe("你好");
+        expect(snapshot.done).toBe(true);
     });
 });
 

@@ -154,24 +154,71 @@ export class ChatStreamParser {
     }
 }
 
-/** 统一读取聊天流，避免各调用方重复处理 Response/reader/decoder。 */
+export interface ReadChatStreamOptions {
+    /** 等待首个数据包的超时；推理模型可能长时间思考后才吐字，默认 10 分钟 */
+    firstTokenTimeoutMs?: number;
+    /** 已收到数据后的空闲超时，仅作最后兜底，默认 5 分钟 */
+    idleTimeoutMs?: number;
+}
+
+/** 默认不在短时间内判定流结束，避免长思考/慢输出被误判为已完成 */
+const DEFAULT_FIRST_TOKEN_TIMEOUT = 10 * 60 * 1000;
+const DEFAULT_IDLE_TIMEOUT = 5 * 60 * 1000;
+
+/**
+ * 统一读取聊天流，避免各调用方重复处理 Response/reader/decoder。
+ *
+ * 收尾策略：
+ * 1. 收到 done 帧立即结束，这是正常路径，不等上游关闭 HTTP 连接；
+ * 2. 只有上游既不发 done、又不关连接时才走超时兜底，且只在收到首包后
+ *    才使用较短的空闲超时；首包之前给推理模型足够长的等待时间；
+ * 3. 用户主动中止由 AbortController 处理，不受这里影响。
+ */
 export async function readChatStream(
     response: Response,
     onSnapshot?: (snapshot: StreamSnapshot) => void,
+    options?: ReadChatStreamOptions,
 ): Promise<StreamSnapshot> {
     const reader = response.body?.getReader();
     if (!reader) throw new Error("服务端未返回流式响应");
 
     const decoder = new TextDecoder();
     const parser = new ChatStreamParser();
+    const firstTokenTimeoutMs = options?.firstTokenTimeoutMs ?? DEFAULT_FIRST_TOKEN_TIMEOUT;
+    const idleTimeoutMs = options?.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT;
+    let receivedData = false;
+    let timedOut = false;
+
+    const readNext = () => new Promise<{done: boolean; value?: Uint8Array}>((resolve, reject) => {
+        const timeoutMs = receivedData ? idleTimeoutMs : firstTokenTimeoutMs;
+        const timer = setTimeout(() => {
+            timedOut = true;
+            void reader.cancel().catch(() => undefined);
+            resolve({done: true});
+        }, timeoutMs);
+        reader.read().then(result => {
+            clearTimeout(timer);
+            if (result.value && result.value.byteLength > 0) receivedData = true;
+            resolve(result);
+        }, error => {
+            clearTimeout(timer);
+            reject(error);
+        });
+    });
+
     while (true) {
-        const {done, value} = await reader.read();
+        const {done, value} = await readNext();
         if (done) break;
-        const snapshot = parser.push(decoder.decode(value, {stream: true}));
+        const snapshot = parser.push(decoder.decode(value!, {stream: true}));
         onSnapshot?.(snapshot);
         if (snapshot.error) throw new Error(snapshot.error);
+        if (snapshot.done) break;
     }
-    const final = parser.finish();
+
+    let final = parser.finish();
+    if (timedOut && !final.done) {
+        final = {...final, done: true};
+    }
     onSnapshot?.(final);
     if (final.error) throw new Error(final.error);
     return final;
