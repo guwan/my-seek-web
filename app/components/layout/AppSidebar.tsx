@@ -2,7 +2,7 @@ import * as React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { BookOpenText, Database, MessageSquareText, PenLine, PlugZap, Plus, Sparkles, UsersRound } from "lucide-react";
+import { BookOpenText, Database, Loader2, MessageSquareText, PenLine, PlugZap, Plus, Sparkles, Trash2, UsersRound } from "lucide-react";
 
 import { SearchForm } from "~/components/SearchForm";
 import {
@@ -13,17 +13,20 @@ import {
     SidebarGroupLabel,
     SidebarHeader,
     SidebarMenu,
+    SidebarMenuAction,
     SidebarMenuButton,
     SidebarMenuItem,
     SidebarRail,
 } from "~/components/layout/sidebar";
-import { getChatItemList } from "~/components/Chat/service";
+import { clearChatItems, deleteChatItem, getChatItemList } from "~/components/Chat/service";
+import { message } from "~/components/Message";
 import { fetchCurrentUserInfo } from "~/components/LoginForm/service";
 import { getUserToken } from "~/lib/AuthUtils";
 import { CHAT_LIST_REFRESH_EVENT, NEW_CHAT_EVENT, NEW_WRITING_EVENT } from "~/lib/constants";
 import type { MenuItem } from "~/services/data";
 import type { RootState } from "~/store";
 import { useAppDispatch } from "~/store";
+import { clearMessages, deleteMessage } from "~/store/chatHistorySlice";
 import { setCurrentUser } from "~/store/currentUserSlice";
 import { formatItemTime, groupByTime } from "~/components/Chat/timeGroup";
 
@@ -34,6 +37,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const [backendHistory, setBackendHistory] = useState<MenuItem[]>([]);
     const [search, setSearch] = useState("");
     const [visibleCount, setVisibleCount] = useState(30);
+    const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(() => new Set());
+    const [clearingAll, setClearingAll] = useState(false);
     const localHistory = useSelector((state: RootState) => state.chatHistorySetter.messages);
     const currentUserAccess = useSelector((state: RootState) => state.currentUserSetter.value.access);
     const userLoadedRef = useRef(false);
@@ -123,6 +128,56 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         navigate("/write");
         // 若已在写作台则立即生效
         window.setTimeout(() => window.dispatchEvent(new Event(NEW_WRITING_EVENT)), 0);
+    };
+
+    const handleDeleteItem = async (item: MenuItem) => {
+        const id = String(item.id);
+        if (!confirm(`确定删除会话「${item.title}」吗？此操作不可撤销。`)) return;
+        if (pendingDeleteIds.has(id)) return;
+
+        const isCurrent = location.pathname === item.url;
+        // 删除当前会话时先中止在途流，避免收尾回调又把会话写回列表
+        if (isCurrent) window.dispatchEvent(new Event(NEW_CHAT_EVENT));
+        setPendingDeleteIds(prev => new Set(prev).add(id));
+        try {
+            const res = await deleteChatItem(id);
+            if (res.success === false) throw new Error(res.msg || "删除会话失败");
+            dispatch(deleteMessage(id));
+            setBackendHistory(prev => prev.filter(entry => String(entry.id) !== id));
+            if (isCurrent) navigate("/");
+            window.dispatchEvent(new Event(CHAT_LIST_REFRESH_EVENT));
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : "删除会话失败");
+        } finally {
+            setPendingDeleteIds(prev => {
+                const next = new Set(prev);
+                next.delete(id);
+                return next;
+            });
+        }
+    };
+
+    const handleClearAll = async () => {
+        if (!historyItems.length) return;
+        if (!confirm("确定删除全部会话吗？此操作不可撤销。")) return;
+        if (clearingAll) return;
+
+        const isInChat = location.pathname.startsWith("/chat/");
+        if (isInChat) window.dispatchEvent(new Event(NEW_CHAT_EVENT));
+        setClearingAll(true);
+        try {
+            const res = await clearChatItems();
+            if (res.success === false) throw new Error(res.msg || "清空会话失败");
+            dispatch(clearMessages());
+            setBackendHistory([]);
+            if (isInChat) navigate("/");
+            window.dispatchEvent(new Event(CHAT_LIST_REFRESH_EVENT));
+            message.success("已清空全部会话");
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : "清空会话失败");
+        } finally {
+            setClearingAll(false);
+        }
     };
 
     return (
@@ -219,6 +274,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
                 <SidebarGroup className="min-h-0 flex-1 overflow-y-auto">
                     <SidebarGroupContent>
+                        <div className="flex items-center justify-between px-2 pb-1">
+                            <span className="text-[11px] text-muted-foreground">历史会话</span>
+                            {historyItems.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={handleClearAll}
+                                    disabled={clearingAll || pendingDeleteIds.size > 0}
+                                    title="删除全部会话"
+                                    className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                                >
+                                    {clearingAll
+                                        ? <Loader2 className="size-3 animate-spin" />
+                                        : <Trash2 className="size-3" />}
+                                    全部删除
+                                </button>
+                            )}
+                        </div>
                         {visibleGroups.length > 0 ? (
                             <div className="space-y-3">
                                 {visibleGroups.map(group => (
@@ -239,6 +311,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                                             </span>
                                                         </NavLink>
                                                     </SidebarMenuButton>
+                                                    <SidebarMenuAction
+                                                        showOnHover
+                                                        type="button"
+                                                        title="删除会话"
+                                                        disabled={pendingDeleteIds.has(String(item.id)) || clearingAll}
+                                                        onClick={(event) => {
+                                                            event.preventDefault();
+                                                            event.stopPropagation();
+                                                            void handleDeleteItem(item);
+                                                        }}
+                                                    >
+                                                        {pendingDeleteIds.has(String(item.id))
+                                                            ? <Loader2 className="size-3 animate-spin" />
+                                                            : <Trash2 className="size-3.5" />}
+                                                    </SidebarMenuAction>
                                                 </SidebarMenuItem>
                                             ))}
                                         </SidebarMenu>
