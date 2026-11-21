@@ -53,6 +53,9 @@ test('发送消息后流式渲染内容并恢复发送按钮', async ({page}) =>
     await page.goto('/');
     const input = page.getByLabel('消息输入框');
     await expect(input).toBeVisible();
+    // 两个开关默认都未选中，且未选中态使用同一套样式
+    await expect(page.getByRole('button', {name: '深度思考'})).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByRole('button', {name: '智能搜索'})).toHaveAttribute('aria-pressed', 'false');
     await input.fill('你好');
 
     await input.press('Enter');
@@ -70,4 +73,19 @@ test('空消息不能发送', async ({page}) => {
 
     const sendButton = page.getByTitle('发送');
     await expect(sendButton).toBeDisabled();
+});
+
+test('两个开关的选中偏好会被记住', async ({page}) => {
+    await mockChatApis(page);
+    await page.goto('/');
+
+    const reasoning = page.getByRole('button', {name: '深度思考'});
+    const search = page.getByRole('button', {name: '智能搜索'});
+    await reasoning.click();
+    await search.click();
+
+    await page.reload();
+
+    await expect(reasoning).toHaveAttribute('aria-pressed', 'true');
+    await expect(search).toHaveAttribute('aria-pressed', 'true');
 });

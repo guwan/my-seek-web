@@ -1,6 +1,6 @@
 import {useRef, useState} from 'react';
 import {useSelector} from "react-redux";
-import {Loader2, Sparkles, WandSparkles} from "lucide-react";
+import {Database, Loader2, Sparkles, WandSparkles} from "lucide-react";
 import type {RootState} from "~/store";
 import type {Novel} from "~/services/writing";
 import {
@@ -9,6 +9,7 @@ import {
     type AiWriteAction,
 } from "~/services/writingAiService";
 import {message} from "~/components/Message";
+import {loadChatOptions, saveChatOptions} from "~/lib/chatOptions";
 
 interface Props {
     novel: Novel;
@@ -22,8 +23,18 @@ export default function AiAssistantPanel({novel, chapterId, selection, onApply}:
     const [custom, setCustom] = useState("");
     const [result, setResult] = useState("");
     const [loading, setLoading] = useState(false);
+    const [chatOptions, setChatOptions] = useState(loadChatOptions);
+    const useKnowledge = chatOptions.useKnowledge;
     const selectedModel = useSelector((state: RootState) => state.models.selectedModel);
     const abortRef = useRef<AbortController | null>(null);
+
+    const toggleKnowledge = () => {
+        setChatOptions(prev => {
+            const next = {...prev, useKnowledge: !prev.useKnowledge};
+            saveChatOptions(next);
+            return next;
+        });
+    };
 
     const generate = async () => {
         if (loading) return;
@@ -47,6 +58,7 @@ export default function AiAssistantPanel({novel, chapterId, selection, onApply}:
                 action,
                 selectedModel || "",
                 custom,
+                useKnowledge,
                 {onChunk: text => setResult(text), signal: controller.signal},
             );
         } catch (e: any) {
@@ -67,9 +79,24 @@ export default function AiAssistantPanel({novel, chapterId, selection, onApply}:
                 </div>
                 <div className="leading-tight">
                     <p className="text-sm font-medium">AI 写作助手</p>
-                    <p className="text-xs text-muted-foreground">基于全书设定创作</p>
+                    <p className="text-xs text-muted-foreground">基于全书设定与知识库创作</p>
                 </div>
             </div>
+
+            <button
+                type="button"
+                onClick={toggleKnowledge}
+                aria-pressed={useKnowledge}
+                title="开启后写作会参考你上传的知识库文档，偏好会被记住"
+                className={`flex items-center gap-1.5 self-start rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                    useKnowledge
+                        ? "border-transparent bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 font-medium text-white shadow-md shadow-purple-500/30"
+                        : "border-border/80 bg-muted/40 text-muted-foreground hover:border-purple-300 hover:bg-muted hover:text-foreground"
+                }`}
+            >
+                <Database className="size-3.5"/>
+                参考知识库
+            </button>
 
             <div className="grid grid-cols-2 gap-2">
                 {AI_WRITE_ACTIONS.map(item => (

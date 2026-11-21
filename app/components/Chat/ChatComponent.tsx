@@ -3,7 +3,7 @@ import {httpClient} from "~/lib/request";
 import {v4 as uuidv4} from 'uuid';
 import {useSelector} from "react-redux";
 import {useParams} from "react-router-dom";
-import {Brain, Globe, Sparkles, Square, ArrowUp} from "lucide-react";
+import {Brain, Database, Globe, Sparkles, Square, ArrowUp} from "lucide-react";
 
 import '~/css/ChatComponent.css'
 import {getChatHistory} from "~/components/Chat/service";
@@ -15,23 +15,24 @@ import {ModelSelector} from "./ModelSelector";
 import type {RootState} from "~/store";
 import {useAppDispatch} from "~/store";
 import {CHAT_LIST_REFRESH_EVENT, NEW_CHAT_EVENT} from "~/lib/constants";
+import {loadChatOptions, saveChatOptions, type ChatOptions} from "~/lib/chatOptions";
 import ChatMessageView from "./ChatMessageView";
 import {parseReasoning, isReasoningStreaming} from "./reasoning";
 import {readChatStream, type SearchMeta} from "./streamUtils";
 
-/** 统一的开关样式：选中态紫蓝渐变 + 光晕，未选中态柔和浅底；两个开关完全一致 */
+/** 统一的开关样式：选中态紫蓝渐变 + 光晕，未选中态统一使用 muted 前景色 */
 const toggleClass = (active: boolean) =>
     `group relative flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-all duration-200 ${
         active
             ? "border-transparent bg-gradient-to-r from-violet-500 via-purple-500 to-indigo-500 font-medium text-white shadow-md shadow-purple-500/30"
-            : "border-border/80 bg-muted/40 text-foreground/75 hover:border-purple-300 hover:bg-muted hover:text-foreground"
+            : "border-border/80 bg-muted/40 text-muted-foreground hover:border-purple-300 hover:bg-muted hover:text-foreground"
     }`;
 
 /** 开关左侧的状态指示灯：选中时发白光 */
 const toggleDotClass = (active: boolean) =>
     active
         ? "size-1.5 rounded-full bg-white shadow-[0_0_6px_2px_rgba(255,255,255,0.55)]"
-        : "size-1.5 rounded-full bg-border transition-colors group-hover:bg-purple-400";
+        : "size-1.5 rounded-full bg-muted-foreground/50 transition-colors group-hover:bg-purple-400";
 
 const SUGGESTIONS = [
     "帮我分析一个问题",
@@ -47,8 +48,8 @@ const ChatComponent = () => {
     const [conversationId, setConversationId] = useState<string | null>(null);
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     const [isSending, setIsSending] = useState(false);
-    const [webSearch, setWebSearch] = useState(false);
-    const [showReasoning, setShowReasoning] = useState(true);
+    const [chatOptions, setChatOptions] = useState<ChatOptions>(loadChatOptions);
+    const {enableThinking, webSearch, useKnowledge} = chatOptions;
     const [reasoningExpanded, setReasoningExpanded] = useState<Record<number, boolean>>({});
     const abortRef = useRef<AbortController | null>(null);
     // state 更新是异步的，用 ref 做同步互斥，避免同一 tick 内重复提交
@@ -62,6 +63,10 @@ const ChatComponent = () => {
     useEffect(() => {
         dispatch(fetchModels());
     }, [dispatch]);
+
+    useEffect(() => {
+        saveChatOptions(chatOptions);
+    }, [chatOptions]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({behavior: "smooth"});
@@ -186,7 +191,8 @@ const ChatComponent = () => {
                 message: text,
                 model: selectedModel,
                 webSearch,
-                enableThinking: showReasoning,
+                enableThinking,
+                useKnowledge,
             }, {signal: controller.signal});
 
             if (!response.ok) throw new Error(`请求失败 (${response.status})`);
@@ -292,7 +298,7 @@ const ChatComponent = () => {
                         <ChatMessageView
                             key={msg.id}
                             msg={msg}
-                            showReasoning={showReasoning}
+                            showReasoning={true}
                             reasoningExpanded={reasoningExpanded}
                             onToggleReasoning={handleToggleReasoning}
                             onRegenerate={handleRegenerate}
@@ -325,23 +331,36 @@ const ChatComponent = () => {
                             <div className="flex flex-wrap items-center gap-2">
                                 <button
                                     type="button"
-                                    onClick={() => setShowReasoning(v => !v)}
-                                    title="开启后模型会进行推理并展示思考过程（支持 qwen3 等混合思考模型）"
-                                    className={toggleClass(showReasoning)}
+                                    onClick={() => setChatOptions(prev => ({...prev, enableThinking: !prev.enableThinking}))}
+                                    title="开启后请求模型进行推理（支持 qwen3 等混合思考模型），偏好会被记住"
+                                    className={toggleClass(enableThinking)}
+                                    aria-pressed={enableThinking}
                                 >
                                     <Brain className="size-3.5"/>
                                     深度思考
-                                    <span className={toggleDotClass(showReasoning)}/>
+                                    <span className={toggleDotClass(enableThinking)}/>
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setWebSearch(v => !v)}
-                                    title="开启后 AI 会先联网搜索实时资料再回答"
+                                    onClick={() => setChatOptions(prev => ({...prev, webSearch: !prev.webSearch}))}
+                                    title="开启后 AI 会先联网搜索实时资料再回答，偏好会被记住"
                                     className={toggleClass(webSearch)}
+                                    aria-pressed={webSearch}
                                 >
                                     <Globe className="size-3.5"/>
                                     智能搜索
                                     <span className={toggleDotClass(webSearch)}/>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setChatOptions(prev => ({...prev, useKnowledge: !prev.useKnowledge}))}
+                                    title="开启后回答会参考你上传的知识库文档，偏好会被记住"
+                                    className={toggleClass(useKnowledge)}
+                                    aria-pressed={useKnowledge}
+                                >
+                                    <Database className="size-3.5"/>
+                                    知识库
+                                    <span className={toggleDotClass(useKnowledge)}/>
                                 </button>
                                 <div className="hidden sm:block">
                                     <ModelSelector

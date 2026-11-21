@@ -7,6 +7,7 @@ import {addNovel, updateChapter} from "~/store/writingSlice";
 import {createNovel, newId} from "~/services/writingStorage";
 import {streamAiWrite} from "~/services/writingAiService";
 import {message} from "~/components/Message";
+import {loadChatOptions} from "~/lib/chatOptions";
 
 interface Props {
     open: boolean;
@@ -79,6 +80,7 @@ export default function NewWritingDialog({open, onClose}: Props) {
                 "imitate",
                 selectedModel || "",
                 "请写出第一章开篇正文，围绕简介与开篇方向展开。",
+                loadChatOptions().useKnowledge,
                 {onChunk: setPreview, signal: controller.signal},
             );
             if (content.trim()) {

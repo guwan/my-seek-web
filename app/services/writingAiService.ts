@@ -44,6 +44,19 @@ function buildContext(novel: Novel, chapterId: string, selection: string): strin
     return lines.join("\n");
 }
 
+/** 写作场景用更短的意图作为检索词，避免把整段设定当 query 影响向量召回 */
+function buildKnowledgeQuery(novel: Novel, action: AiWriteAction, custom: string, selection: string): string {
+    const parts = [
+        AI_WRITE_ACTIONS.find(item => item.key === action)?.label || "",
+        selection.trim().slice(0, 200),
+        custom.trim().slice(0, 200),
+        novel.genre || "",
+        (novel.description || "").slice(0, 200),
+        (novel.style || "").slice(0, 200),
+    ];
+    return parts.filter(Boolean).join(" ").slice(0, 500);
+}
+
 function buildPrompt(action: AiWriteAction, custom: string, context: string): string {
     const rules =
         "严格要求：只输出小说正文内容，不要输出任何解释、说明、标题、引号或 Markdown 代码块标记；" +
@@ -75,6 +88,7 @@ export async function streamAiWrite(
     action: AiWriteAction,
     model: string,
     custom: string,
+    useKnowledge: boolean,
     {onChunk, signal}: StreamWriteCallbacks,
 ): Promise<string> {
     const prompt = buildPrompt(action, custom, buildContext(novel, chapterId, selection));
@@ -84,6 +98,8 @@ export async function streamAiWrite(
             conversationId: `writing-${novel.id}-${chapterId}-${Date.now()}`,
             message: prompt,
             model,
+            useKnowledge,
+            knowledgeQuery: buildKnowledgeQuery(novel, action, custom, selection),
         },
         {signal},
     );
