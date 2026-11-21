@@ -51,6 +51,9 @@ const ChatComponent = () => {
     const [showReasoning, setShowReasoning] = useState(true);
     const [reasoningExpanded, setReasoningExpanded] = useState<Record<number, boolean>>({});
     const abortRef = useRef<AbortController | null>(null);
+    // state 更新是异步的，用 ref 做同步互斥，避免同一 tick 内重复提交
+    const sendingRef = useRef(false);
+    const messageIdRef = useRef(Date.now());
     const dispatch = useAppDispatch();
     const selectedModel = useSelector((state: RootState) => state.models.selectedModel);
 
@@ -71,6 +74,10 @@ const ChatComponent = () => {
     // 侧边栏“新建对话”通过事件重置当前会话
     useEffect(() => {
         const resetChat = () => {
+            // 中止在途流，避免旧流继续写入已清空的会话并刷新列表
+            abortRef.current?.abort();
+            abortRef.current = null;
+            sendingRef.current = false;
             setMessages([]);
             setInput("");
             setConversationId(null);
@@ -123,6 +130,7 @@ const ChatComponent = () => {
 
     /** 执行发送 / 重新生成：text 为本次用户输入 */
     const runStream = async (text: string, convId: string, aiId: number) => {
+        sendingRef.current = true;
         setIsSending(true);
         const controller = new AbortController();
         abortRef.current = controller;
@@ -183,9 +191,15 @@ const ChatComponent = () => {
             window.dispatchEvent(new Event(CHAT_LIST_REFRESH_EVENT));
         } catch (error: any) {
             if (error?.name === "AbortError") {
+                // 先把最后一帧刷入消息，避免停止时丢失已生成的内容
+                if (frame !== null) cancelAnimationFrame(frame);
+                frame = null;
+                flushSnapshot();
                 setMessages(prev => prev.map(msg =>
                     msg.id === aiId ? {...msg, content: msg.content || "已停止生成", isThinking: false} : msg
                 ));
+                // 取消也会落库部分回复，刷新会话列表保持一致
+                window.dispatchEvent(new Event(CHAT_LIST_REFRESH_EVENT));
                 return;
             }
             console.error('发送消息失败:', error);
@@ -196,6 +210,7 @@ const ChatComponent = () => {
         } finally {
             if (frame !== null) cancelAnimationFrame(frame);
             pendingSnapshot = null;
+            sendingRef.current = false;
             setIsSending(false);
             abortRef.current = null;
         }
@@ -203,7 +218,7 @@ const ChatComponent = () => {
 
     const handleSend = async () => {
         const text = input.trim();
-        if (!text || isSending) return;
+        if (!text || sendingRef.current) return;
 
         const isNewChat = !conversationId;
         const currentConversationId = conversationId || generateNewConversation();
@@ -216,8 +231,8 @@ const ChatComponent = () => {
             }));
         }
 
-        const userMessage: ChatMessage = {id: Date.now(), type: 'user', content: text};
-        const aiMessage: ChatMessage = {id: Date.now() + 1, type: 'ai', content: '', isThinking: true};
+        const userMessage: ChatMessage = {id: messageIdRef.current++, type: 'user', content: text};
+        const aiMessage: ChatMessage = {id: messageIdRef.current++, type: 'ai', content: '', isThinking: true};
         setMessages(prev => [...prev, userMessage, aiMessage]);
         setInput('');
         await runStream(text, currentConversationId, aiMessage.id);
@@ -226,12 +241,12 @@ const ChatComponent = () => {
     const stopGenerating = () => abortRef.current?.abort();
 
     const handleRegenerate = () => {
-        if (isSending) return;
+        if (sendingRef.current) return;
         // 找到最后一条用户消息，删除其后的 AI 回复后重新生成
         const lastUserIdx = [...messages].map(m => m.type).lastIndexOf('user');
         if (lastUserIdx < 0 || !conversationId) return;
         const lastUserText = messages[lastUserIdx].content;
-        const newAiId = Date.now();
+        const newAiId = messageIdRef.current++;
         setMessages(prev => [...prev.slice(0, lastUserIdx + 1), {id: newAiId, type: 'ai', content: '', isThinking: true}]);
         void runStream(lastUserText, conversationId, newAiId);
     };
