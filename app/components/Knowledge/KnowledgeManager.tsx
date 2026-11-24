@@ -1,12 +1,13 @@
-import {useEffect, useRef, useState} from "react";
+import {useCallback, useEffect, useRef, useState} from "react";
 import {useSelector} from "react-redux";
-import {Database, FileText, Loader2, Plus, Search, Trash2, Upload} from "lucide-react";
+import {Database, FileText, Loader2, Plus, RotateCcw, Search, Trash2, Upload} from "lucide-react";
 import {message} from "~/components/Message";
 import {
     deleteDocument,
     listDocuments,
     queryDocument,
     queryKnowledge,
+    retryDocument,
     uploadDocument,
     type KnowledgeDocument,
     type KnowledgeStatus,
@@ -47,11 +48,12 @@ export default function KnowledgeManager() {
     const [topK, setTopK] = useState(5);
     const [answer, setAnswer] = useState("");
     const [querying, setQuerying] = useState(false);
+    const [retryingId, setRetryingId] = useState<string | null>(null);
     const selectedModel = useSelector((state: RootState) => state.models.selectedModel);
     const fileRef = useRef<HTMLInputElement>(null);
 
-    const load = async () => {
-        setLoading(true);
+    const load = useCallback(async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
             const res = await listDocuments({page, size: PAGE_SIZE});
             if (!res.success) {
@@ -63,13 +65,21 @@ export default function KnowledgeManager() {
         } catch (e: any) {
             message.error(e?.message || "加载知识库失败");
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
-    };
-
-    useEffect(() => {
-        void load();
     }, [page]);
+
+    const loadRef = useRef(load);
+    useEffect(() => { loadRef.current = load; }, [load]);
+    useEffect(() => { void load(); }, [load]);
+
+    // 上传后状态会在后台流转，PENDING/PROCESSING 期间轻量轮询，进入终态后自动停止
+    const hasPending = documents.some(doc => doc.status === "PENDING" || doc.status === "PROCESSING");
+    useEffect(() => {
+        if (!hasPending) return;
+        const timer = window.setInterval(() => void loadRef.current(true), 4000);
+        return () => window.clearInterval(timer);
+    }, [hasPending]);
 
     const handleUpload = async (file: File | undefined) => {
         if (!file) return;
@@ -77,9 +87,8 @@ export default function KnowledgeManager() {
         try {
             const res = await uploadDocument(file);
             if (res.success) {
-                message.success("文档已上传并开始处理");
-                setPage(0);
-                await load();
+                message.success("文档已上传，正在后台处理");
+                if (page === 0) await load(); else setPage(0);
             } else {
                 message.error(res.msg || "上传失败");
             }
@@ -98,10 +107,26 @@ export default function KnowledgeManager() {
             const res = await deleteDocument(doc.id);
             if (res.success) {
                 message.success("已删除");
-                await load();
+                if (documents.length === 1 && page > 0) setPage(page - 1); else await load();
             } else message.error(res.msg || "删除失败");
         } catch (e: any) {
             message.error(e?.message || "删除失败");
+        }
+    };
+
+    const handleRetry = async (doc: KnowledgeDocument) => {
+        if (!doc.id) return;
+        setRetryingId(doc.id);
+        try {
+            const res = await retryDocument(doc.id);
+            if (res.success) {
+                message.success("已重新提交处理");
+                await load();
+            } else message.error(res.msg || "重试失败");
+        } catch (e: any) {
+            message.error(e?.message || "重试失败");
+        } finally {
+            setRetryingId(null);
         }
     };
 
@@ -133,7 +158,7 @@ export default function KnowledgeManager() {
                 <div>
                     <h1 className="text-2xl font-semibold">知识库</h1>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        上传文档后自动解析并向量化，可在页面中检索，也可通过 RAG 接口为对话补充上下文。
+                        上传后自动进入后台解析与向量化，列表会刷新状态；失败的文档可点击重试。完成后可在页面中检索，也可通过 RAG 接口为对话补充上下文。
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -201,13 +226,27 @@ export default function KnowledgeManager() {
                                                 <p className="mt-1 text-xs text-destructive">{doc.errorMessage}</p>
                                             )}
                                         </div>
-                                        <button
-                                            onClick={() => void handleDelete(doc)}
-                                            title="删除"
-                                            className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-destructive"
-                                        >
-                                            <Trash2 className="size-4"/>
-                                        </button>
+                                        <div className="flex shrink-0 items-center gap-1">
+                                            {status === "FAILED" && doc.id && (
+                                                <button
+                                                    onClick={() => void handleRetry(doc)}
+                                                    disabled={retryingId === doc.id}
+                                                    title="重试处理"
+                                                    className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-primary disabled:opacity-50"
+                                                >
+                                                    {retryingId === doc.id
+                                                        ? <Loader2 className="size-4 animate-spin"/>
+                                                        : <RotateCcw className="size-4"/>}
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => void handleDelete(doc)}
+                                                title="删除"
+                                                className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-destructive"
+                                            >
+                                                <Trash2 className="size-4"/>
+                                            </button>
+                                        </div>
                                     </div>
                                 );
                             })}

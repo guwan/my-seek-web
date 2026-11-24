@@ -39,6 +39,17 @@ export async function deleteDocument(documentId: string) {
     return httpClient.delete<Result<unknown>>(`/api/knowledge/documents/${encodeURIComponent(documentId)}`);
 }
 
+export async function getDocument(documentId: string) {
+    return httpClient.getRet<KnowledgeDocument>(`/api/knowledge/documents/${encodeURIComponent(documentId)}`);
+}
+
+export async function retryDocument(documentId: string) {
+    return httpClient.post<Result<KnowledgeDocument>>(
+        `/api/knowledge/documents/${encodeURIComponent(documentId)}/retry`,
+        {},
+    );
+}
+
 export async function queryKnowledge(query: string, topK = 5, model?: string) {
     return httpClient.postRet("/api/knowledge/query", {query, topK, model});
 }

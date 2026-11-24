@@ -33,7 +33,8 @@
 - **Structured stream protocol**: parses `meta / content / done / error` frames, with legacy raw-text stream compatibility
 - **Web search**: optional real-time search with source links in responses
 - **Provider management**: visually add, edit, enable/disable third-party AI endpoints and test connectivity; API keys are encrypted by the backend
-- **Knowledge base management**: upload documents, view parsing status and chunk count, delete documents, and generate model answers from retrieved snippets
+- **Knowledge base management**: upload documents processed asynchronously (status polling and failed-job retry), view parsing status and chunk count, delete documents, and generate model answers from retrieved snippets
+- **AI task center**: create a goal, review the generated step plan, then run it asynchronously with visible progress, logs, cancellation, and failed-step retry; tools are limited to a per-user whitelist and sensitive write actions require step approval
 - **User management**: admins can create internal accounts, maintain basic info, enable/disable accounts, and assign roles; hidden for regular users
 - **AI writing workspace**: a dedicated writing page with local draft autosave and AI continue/polish/expand actions
 - **Style-based imitation**: new writing can generate an opening from a style description without a reference sample; style remains editable as a work setting
@@ -53,6 +54,16 @@
 | State | Redux Toolkit | 2.14 |
 | Components | shadcn/ui (Radix UI) | — |
 | Package manager | pnpm | 11 |
+
+## One-line Demo
+
+To try the whole stack without manual setup, run this in Git Bash (Windows) / macOS / Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/guwan/my-seek/main/doc/demo.sh | bash
+```
+
+It validates `git` / JDK 25+ / Node.js 22+ / pnpm 11+, clones or updates `my-seek`, `my-seek-web` and `my-seek-page`, asks whether to auto-handle or skip the database (embedded H2) and Redis (embedded Luban-RDS) — no Docker needed — prints manual Ollama install instructions, then launches the backend and this frontend, opening `http://localhost:5173` automatically. Knowledge-base RAG is disabled in demo mode. See [the demo script](https://github.com/guwan/my-seek/blob/main/doc/demo.sh) for details.
 
 ## Quick Start
 

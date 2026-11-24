@@ -2,7 +2,7 @@ import * as React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { BookOpenText, Database, Loader2, MessageSquareText, PenLine, PlugZap, Plus, Sparkles, Trash2, UsersRound } from "lucide-react";
+import { BookOpenText, Database, ListTodo, Loader2, MessageSquareText, PenLine, PlugZap, Plus, Sparkles, Trash2, UsersRound } from "lucide-react";
 
 import { SearchForm } from "~/components/SearchForm";
 import {
@@ -232,6 +232,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                     <NavLink to="/knowledge">
                                         <Database className="size-4" />
                                         知识库
+                                    </NavLink>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton asChild isActive={location.pathname.startsWith("/tasks")}>
+                                    <NavLink to="/tasks">
+                                        <ListTodo className="size-4" />
+                                        AI 任务中心
                                     </NavLink>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
