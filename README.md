@@ -34,7 +34,7 @@
 - **Web search**: optional real-time search with source links in responses
 - **Provider management**: visually add, edit, enable/disable third-party AI endpoints and test connectivity; API keys are encrypted by the backend
 - **Knowledge base management**: upload documents processed asynchronously (status polling and failed-job retry), view parsing status and chunk count, delete documents, and generate model answers from retrieved snippets
-- **AI task center**: create a goal, review the generated step plan, then run it asynchronously with visible progress, logs, cancellation, and failed-step retry; tools are limited to a per-user whitelist and sensitive write actions require step approval
+- **AI task center**: create a goal, review the generated step plan, then run it asynchronously with visible progress streamed over SSE (polling fallback), logs, cancellation, and failed-step retry; tools are limited to a per-user whitelist and sensitive write actions require step approval
 - **User management**: admins can create internal accounts, maintain basic info, enable/disable accounts, and assign roles; hidden for regular users
 - **AI writing workspace**: a dedicated writing page with local draft autosave and AI continue/polish/expand actions
 - **Style-based imitation**: new writing can generate an opening from a style description without a reference sample; style remains editable as a work setting

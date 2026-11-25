@@ -1,3 +1,4 @@
+import {getUserToken} from "~/lib/AuthUtils";
 import {httpClient} from "~/lib/request";
 import type {Result} from "~/services/data";
 
@@ -20,6 +21,7 @@ export interface TaskStep {
 
 export interface TaskEvent {
     id: string;
+    seq?: number;
     stepId?: string;
     eventType: string;
     payload?: string;
@@ -49,6 +51,51 @@ export interface TaskPage {
     totalPages: number;
     size: number;
     number: number;
+}
+
+/**
+ * 订阅任务事件的 SSE 流。fetch 可以携带 Authorization 头，避免 EventSource 无法传 Token 的限制。
+ */
+export async function streamTaskEvents(
+    taskId: string,
+    after: number,
+    onEvent: (event: TaskEvent) => void,
+    options?: { signal?: AbortSignal },
+) {
+    const token = getUserToken();
+    const response = await fetch(
+        `/api/tasks/${encodeURIComponent(taskId)}/events?after=${after}`,
+        {
+            headers: token ? {Authorization: `Bearer ${token}`} : {},
+            signal: options?.signal,
+        },
+    );
+    if (!response.ok || !response.body) {
+        throw new Error(`订阅任务事件失败：HTTP ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+        const {value, done} = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, {stream: true});
+        const frames = buffer.split(/\r?\n\r?\n/);
+        buffer = frames.pop() ?? "";
+        for (const frame of frames) {
+            const data = frame.split(/\r?\n/)
+                .filter(line => line.startsWith("data:"))
+                .map(line => line.slice(5).trimStart())
+                .join("\n");
+            if (!data || data === "keepalive") continue;
+            try {
+                onEvent(JSON.parse(data) as TaskEvent);
+            } catch {
+                // 忽略无法解析的心跳或非事件帧
+            }
+        }
+    }
 }
 
 export function createTask(payload: { title: string; goal: string; constraints?: string; modelCode?: string }) {

@@ -20,6 +20,7 @@ import {
     getTask,
     listTasks,
     retryTaskStep,
+    streamTaskEvents,
     type AgentTask,
     type StepStatus,
     type TaskStatus,
@@ -70,6 +71,7 @@ export default function TaskManager() {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [busy, setBusy] = useState(false);
+    const [streamConnected, setStreamConnected] = useState(false);
     const [title, setTitle] = useState("");
     const [goal, setGoal] = useState("");
     const [constraints, setConstraints] = useState("");
@@ -105,16 +107,46 @@ export default function TaskManager() {
         if (selectedId) void loadDetail(selectedId); else setDetail(null);
     }, [selectedId, loadDetail]);
 
+    useEffect(() => {
+        if (!selectedId) {
+            setStreamConnected(false);
+            return;
+        }
+        const controller = new AbortController();
+        let cancelled = false;
+        setStreamConnected(true);
+        streamTaskEvents(selectedId, 0, event => {
+            if (cancelled) return;
+            setDetail(prev => {
+                if (!prev || prev.id !== selectedId) return prev;
+                if (prev.events?.some(existing => existing.seq === event.seq)) return prev;
+                return {...prev, events: [...(prev.events ?? []), event]};
+            });
+            if (["step_finished", "step_failed", "task_completed", "approval_requested",
+                "plan_generated", "task_cancelled", "plan_failed"].includes(event.eventType)) {
+                void loadDetail(selectedId, true);
+            }
+        }, {signal: controller.signal}).catch(() => {
+            if (!cancelled) setStreamConnected(false);
+        }).finally(() => {
+            if (!cancelled) setStreamConnected(false);
+        });
+        return () => {
+            cancelled = true;
+            controller.abort();
+        };
+    }, [selectedId, loadDetail]);
+
     const hasActive = tasks.some(task => ACTIVE_STATUSES.includes(task.status))
         || (detail != null && ACTIVE_STATUSES.includes(detail.status));
     useEffect(() => {
-        if (!hasActive) return;
+        if (!hasActive || streamConnected) return;
         const timer = window.setInterval(() => {
             void loadList(true);
             if (selectedId) void loadDetail(selectedId, true);
         }, 4000);
         return () => window.clearInterval(timer);
-    }, [hasActive, selectedId, loadList, loadDetail]);
+    }, [hasActive, streamConnected, selectedId, loadList, loadDetail]);
 
     const runAction = async (action: () => Promise<Result<AgentTask>>, successText: string) => {
         setBusy(true);
@@ -251,6 +283,7 @@ export default function TaskManager() {
                                             {STATUS_META[detail.status]?.label ?? detail.status}
                                         </span>
                                         <span>步骤 {detail.currentStep ?? 0}/{detail.maxSteps ?? 0}</span>
+                                        <span>{streamConnected ? "实时连接" : "轮询刷新"}</span>
                                         <span>创建于 {formatTime(detail.createdAt)}</span>
                                     </div>
                                 </div>
