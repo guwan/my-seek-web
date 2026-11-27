@@ -30,6 +30,7 @@ describe("taskService", () => {
             goal: "输出世界观文档",
             constraints: undefined,
             modelCode: undefined,
+            agentCode: undefined,
         });
         expect(result.data?.id).toBe("t1");
     });

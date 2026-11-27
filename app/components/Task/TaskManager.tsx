@@ -28,6 +28,7 @@ import {
     type TaskStatus,
 } from "~/services/taskService";
 import type {Result} from "~/services/data";
+import {listAgents, type AgentDef} from "~/services/catalogService";
 
 const ACTIVE_STATUSES: TaskStatus[] = ["PLANNING", "PLAN_REVIEW", "WAIT_APPROVAL", "RUNNING"];
 
@@ -85,6 +86,8 @@ export default function TaskManager() {
     const [goal, setGoal] = useState("");
     const [constraints, setConstraints] = useState("");
     const [modelCode, setModelCode] = useState("");
+    const [agentCode, setAgentCode] = useState("");
+    const [agents, setAgents] = useState<AgentDef[]>([]);
 
     const loadList = useCallback(async (silent = false) => {
         if (!silent) setLoading(true);
@@ -116,6 +119,9 @@ export default function TaskManager() {
         void listTaskTools().then(res => {
             if (res.success && res.data) setTools(res.data);
         }).catch(() => { /* 工具列表加载失败不影响任务中心主流程 */ });
+        void listAgents().then(res => {
+            if (res.success && res.data) setAgents(res.data.filter(a => a.enabled !== false));
+        }).catch(() => { /* 专家列表加载失败不影响主流程 */ });
     }, []);
     useEffect(() => {
         if (selectedId) void loadDetail(selectedId); else setDetail(null);
@@ -188,13 +194,14 @@ export default function TaskManager() {
             goal: goal.trim(),
             constraints: constraints.trim() || undefined,
             modelCode: modelCode.trim() || undefined,
+            agentCode: agentCode || undefined,
         });
         if (!res.success) {
             message.error(res.msg || "新建任务失败");
             return;
         }
         message.success("任务已创建，正在生成计划");
-        setTitle(""); setGoal(""); setConstraints(""); setModelCode("");
+        setTitle(""); setGoal(""); setConstraints(""); setModelCode(""); setAgentCode("");
         await loadList(true);
         if (res.data) setSelectedId(res.data.id);
     };
@@ -239,10 +246,24 @@ export default function TaskManager() {
                             rows={3}
                             className="w-full resize-y rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40"
                         />
+                        {agents.length > 0 && (
+                            <select
+                                value={agentCode}
+                                onChange={e => setAgentCode(e.target.value)}
+                                className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40"
+                            >
+                                <option value="">专家（可选）：通用助理</option>
+                                {agents.map(agent => (
+                                    <option key={agent.id} value={agent.code}>
+                                        {agent.name}{agent.builtin ? "（内置）" : ""}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
                         <input
                             value={modelCode}
                             onChange={e => setModelCode(e.target.value)}
-                            placeholder="模型（可选）：provider:model，留空用默认"
+                            placeholder="模型（可选）：provider:model，留空用专家推荐模型"
                             className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500/40"
                         />
                         <button
@@ -319,6 +340,9 @@ export default function TaskManager() {
                                         <span className={`rounded px-1.5 py-0.5 ${STATUS_META[detail.status]?.className ?? ""}`}>
                                             {STATUS_META[detail.status]?.label ?? detail.status}
                                         </span>
+                                        {detail.agentCode && (
+                                            <span className="rounded bg-violet-500/15 px-1.5 py-0.5 text-violet-300">专家：{detail.agentCode}</span>
+                                        )}
                                         <span>步骤 {detail.currentStep ?? 0}/{detail.maxSteps ?? 0}</span>
                                         <span>{streamConnected ? "实时连接" : "轮询刷新"}</span>
                                         <span>创建于 {formatTime(detail.createdAt)}</span>

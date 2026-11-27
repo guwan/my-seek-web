@@ -16,6 +16,7 @@ export default function Layout() {
     const isWriting = location.pathname.startsWith("/write");
     const isKnowledge = location.pathname.startsWith("/knowledge");
     const isTasks = location.pathname.startsWith("/tasks");
+    const isCatalog = location.pathname.startsWith("/catalog");
     const isUsers = location.pathname.startsWith("/users");
     const isProviders = location.pathname.startsWith("/providers");
     return (
@@ -32,15 +33,15 @@ export default function Layout() {
                         <BreadcrumbList>
                             <BreadcrumbItem className="hidden md:block">
                                 <BreadcrumbLink asChild>
-                                    <Link to={isWriting ? "/write" : isKnowledge ? "/knowledge" : isTasks ? "/tasks" : isUsers ? "/users" : isProviders ? "/providers" : "/"}>
-                                        {isWriting ? "写作" : isKnowledge ? "知识库" : isTasks ? "AI 任务中心" : isUsers ? "用户管理" : isProviders ? "设置" : "对话"}
+                                    <Link to={isWriting ? "/write" : isKnowledge ? "/knowledge" : isTasks ? "/tasks" : isCatalog ? "/catalog" : isUsers ? "/users" : isProviders ? "/providers" : "/"}>
+                                        {isWriting ? "写作" : isKnowledge ? "知识库" : isTasks ? "AI 任务中心" : isCatalog ? "能力目录" : isUsers ? "用户管理" : isProviders ? "设置" : "对话"}
                                     </Link>
                                 </BreadcrumbLink>
                             </BreadcrumbItem>
                             <BreadcrumbSeparator className="hidden md:block" />
                             <BreadcrumbItem>
                                 <BreadcrumbPage>
-                                    {isWriting ? "新建章节" : isKnowledge ? "文档管理" : isTasks ? "任务列表" : isUsers ? "内部账号" : isProviders ? "第三方 AI 接口" : "问一个问题"}
+                                    {isWriting ? "新建章节" : isKnowledge ? "文档管理" : isTasks ? "任务列表" : isCatalog ? "专家 / 技能 / 连接器" : isUsers ? "内部账号" : isProviders ? "第三方 AI 接口" : "问一个问题"}
                                 </BreadcrumbPage>
                             </BreadcrumbItem>
                         </BreadcrumbList>

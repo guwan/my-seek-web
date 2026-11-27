@@ -12,6 +12,7 @@ export default [
         route("write", "./pages/Write.tsx"),
         route("knowledge", "./pages/Knowledge.tsx"),
         route("tasks", "./pages/Tasks.tsx"),
+        route("catalog", "./pages/Catalog.tsx"),
         route("users", "./pages/Users.tsx"),
         route("providers", "./pages/Providers.tsx"),
     ]),

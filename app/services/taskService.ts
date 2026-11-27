@@ -35,6 +35,7 @@ export interface AgentTask {
     goal: string;
     constraints?: string;
     modelCode?: string;
+    agentCode?: string;
     status: TaskStatus;
     currentStep?: number;
     maxSteps?: number;
@@ -99,7 +100,7 @@ export async function streamTaskEvents(
     }
 }
 
-export function createTask(payload: { title: string; goal: string; constraints?: string; modelCode?: string }) {
+export function createTask(payload: { title: string; goal: string; constraints?: string; modelCode?: string; agentCode?: string }) {
     return httpClient.post<Result<AgentTask>>("/api/tasks", payload);
 }
 

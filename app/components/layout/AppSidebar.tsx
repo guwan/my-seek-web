@@ -243,6 +243,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                     </NavLink>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
+                            <SidebarMenuItem>
+                                <SidebarMenuButton asChild isActive={location.pathname.startsWith("/catalog")}>
+                                    <NavLink to="/catalog">
+                                        <PlugZap className="size-4" />
+                                        能力目录
+                                    </NavLink>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
                             {currentUserAccess === "admin" && (
                                 <SidebarMenuItem>
                                     <SidebarMenuButton asChild isActive={location.pathname.startsWith("/users")}>
