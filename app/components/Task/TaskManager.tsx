@@ -4,6 +4,7 @@ import {
     CheckCircle2,
     Circle,
     ClipboardList,
+    Layers,
     Loader2,
     Play,
     RotateCcw,
@@ -188,6 +189,7 @@ export default function TaskManager() {
     const pendingApproval = detail?.steps?.find(
         step => step.requiresApproval && !step.approved && step.status === "PENDING",
     );
+    const steps = detail?.steps ?? [];
 
     return (
         <div className="mx-auto w-full max-w-7xl space-y-6 p-6">
@@ -363,12 +365,15 @@ export default function TaskManager() {
 
                             <div>
                                 <h3 className="mb-2 text-sm font-semibold">执行步骤</h3>
-                                {detail.steps?.length ? (
+                                {steps.length ? (
                                     <ol className="space-y-2">
-                                        {detail.steps.map(step => {
+                                        {steps.map((step, index) => {
                                             const Icon = STEP_META[step.status]?.icon ?? Circle;
+                                            const group = step.parallelGroup?.trim() ?? "";
+                                            const groupStart = !!group && steps[index - 1]?.parallelGroup?.trim() !== group;
                                             return (
-                                                <li key={step.id} className="rounded-lg border p-3">
+                                                <li key={step.id} className={`rounded-lg border p-3 ${
+                                                    group ? "border-indigo-500/40 bg-indigo-500/5" : ""}`}>
                                                     <div className="flex items-start gap-2">
                                                         <Icon className={`mt-0.5 size-4 shrink-0 ${STEP_META[step.status]?.className ?? ""}`}/>
                                                         <div className="min-w-0 flex-1">
@@ -377,6 +382,12 @@ export default function TaskManager() {
                                                                 <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                                                                     {TOOL_LABELS[step.tool ?? "model"] ?? step.tool}
                                                                 </span>
+                                                                {group && (
+                                                                    <span className="inline-flex items-center gap-1 rounded bg-indigo-500/15 px-1.5 py-0.5 text-[10px] text-indigo-300">
+                                                                        {groupStart && <Layers className="size-3"/>}
+                                                                        {groupStart ? `并行组 ${group}` : `并行 · ${group}`}
+                                                                    </span>
+                                                                )}
                                                                 {step.requiresApproval && (
                                                                     <span className="rounded bg-orange-500/15 px-1.5 py-0.5 text-[10px] text-orange-300">
                                                                         需审批{step.approved ? " · 已批准" : ""}

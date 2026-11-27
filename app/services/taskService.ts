@@ -12,6 +12,7 @@ export interface TaskStep {
     title: string;
     tool?: string;
     inputJson?: string;
+    parallelGroup?: string;
     requiresApproval?: boolean;
     approved?: boolean;
     status: StepStatus;
