@@ -111,6 +111,11 @@ export function getTask(taskId: string) {
     return httpClient.getRet<AgentTask>(`/api/tasks/${encodeURIComponent(taskId)}`);
 }
 
+/** 任务中心可用工具（内置 + 外部 MCP 工具）。 */
+export function listTaskTools() {
+    return httpClient.getRet<string[]>("/api/tasks/tools");
+}
+
 export function confirmTask(taskId: string) {
     return httpClient.post<Result<AgentTask>>(`/api/tasks/${encodeURIComponent(taskId)}/confirm`, {});
 }

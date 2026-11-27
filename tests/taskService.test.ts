@@ -11,6 +11,7 @@ import {
     approveTask,
     confirmTask,
     createTask,
+    listTaskTools,
     listTasks,
     retryTaskStep,
 } from "~/services/taskService";
@@ -38,6 +39,13 @@ describe("taskService", () => {
         const result = await listTasks(1, 10);
         expect(getRetMock).toHaveBeenCalledWith("/api/tasks", {page: 1, size: 10});
         expect(result.success).toBe(true);
+    });
+
+    it("lists available task tools including MCP ones", async () => {
+        getRetMock.mockResolvedValue({success: true, data: ["knowledge_search", "mcp_weather_get_weather"]});
+        const result = await listTaskTools();
+        expect(getRetMock).toHaveBeenCalledWith("/api/tasks/tools");
+        expect(result.data).toContain("mcp_weather_get_weather");
     });
 
     it("calls confirm and step retry endpoints", async () => {

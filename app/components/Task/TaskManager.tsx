@@ -19,6 +19,7 @@ import {
     confirmTask,
     createTask,
     getTask,
+    listTaskTools,
     listTasks,
     retryTaskStep,
     streamTaskEvents,
@@ -60,6 +61,12 @@ const TOOL_LABELS: Record<string, string> = {
     web_search: "联网搜索",
 };
 
+function toolLabel(tool?: string) {
+    if (!tool) return "模型推理";
+    if (tool.startsWith("mcp_")) return `MCP · ${tool.slice(4)}`;
+    return TOOL_LABELS[tool] ?? tool;
+}
+
 function formatTime(value?: string) {
     if (!value) return "-";
     const date = new Date(value);
@@ -68,6 +75,7 @@ function formatTime(value?: string) {
 
 export default function TaskManager() {
     const [tasks, setTasks] = useState<AgentTask[]>([]);
+    const [tools, setTools] = useState<string[]>([]);
     const [detail, setDetail] = useState<AgentTask | null>(null);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -104,6 +112,11 @@ export default function TaskManager() {
     }, []);
 
     useEffect(() => { void loadList(); }, [loadList]);
+    useEffect(() => {
+        void listTaskTools().then(res => {
+            if (res.success && res.data) setTools(res.data);
+        }).catch(() => { /* 工具列表加载失败不影响任务中心主流程 */ });
+    }, []);
     useEffect(() => {
         if (selectedId) void loadDetail(selectedId); else setDetail(null);
     }, [selectedId, loadDetail]);
@@ -238,6 +251,28 @@ export default function TaskManager() {
                         >
                             创建任务
                         </button>
+                        {tools.length > 0 && (
+                            <div className="border-t pt-2">
+                                <div className="mb-1 text-xs text-muted-foreground">
+                                    可用工具（{tools.filter(t => !t.startsWith("mcp_")).length} 内置 /
+                                    {tools.filter(t => t.startsWith("mcp_")).length} MCP）
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                    {tools.map(tool => (
+                                        <span
+                                            key={tool}
+                                            title={tool.startsWith("mcp_") ? "外部 MCP 工具，执行前需批准" : undefined}
+                                            className={`rounded px-1.5 py-0.5 text-[10px] ${
+                                                tool.startsWith("mcp_")
+                                                    ? "bg-violet-500/15 text-violet-300"
+                                                    : "bg-muted text-muted-foreground"}`}
+                                        >
+                                            {tool.startsWith("mcp_") ? tool.slice(4) : tool}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </section>
 
                     <section className="rounded-xl border bg-card p-3">
@@ -323,7 +358,7 @@ export default function TaskManager() {
                                     <p className="mt-1 text-sm">
                                         步骤 #{pendingApproval.seq} {pendingApproval.title} 将调用
                                         <span className="mx-1 rounded bg-orange-500/20 px-1.5 py-0.5 text-xs">
-                                            {TOOL_LABELS[pendingApproval.tool ?? "model"] ?? pendingApproval.tool}
+                                            {toolLabel(pendingApproval.tool)}
                                         </span>
                                     </p>
                                     {pendingApproval.inputJson && pendingApproval.inputJson !== "{}" && (
@@ -380,7 +415,7 @@ export default function TaskManager() {
                                                             <div className="flex flex-wrap items-center gap-2 text-sm">
                                                                 <span className="font-medium">#{step.seq} {step.title}</span>
                                                                 <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                                                                    {TOOL_LABELS[step.tool ?? "model"] ?? step.tool}
+                                                                    {toolLabel(step.tool)}
                                                                 </span>
                                                                 {group && (
                                                                     <span className="inline-flex items-center gap-1 rounded bg-indigo-500/15 px-1.5 py-0.5 text-[10px] text-indigo-300">
